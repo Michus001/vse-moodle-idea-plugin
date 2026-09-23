@@ -1,10 +1,11 @@
 <!-- Plugin Configuration File. Read more: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
 <idea-plugin>
     <id>cz.vse.moodle</id>
-    <name>Moodle VŠE</name>
-    <vendor>VŠE</vendor>
+    <name>Moodle VSE</name>
+    <vendor>VSE</vendor>
 
     <description><![CDATA[
+    Moodle VSE integration for students of the Prague University of Economics and Business.<br>
     Přihlášení do <a href="https://moodle.vse.cz">Moodle VŠE</a> přes SSO (stejně jako mobilní aplikace Moodle)
     a práce s úlohami <b>VPL</b> (Virtual Programming Lab): seznam otevřených úloh kurzu, otevření úlohy jako projektu,
     odevzdání a vyhodnocení přímo z IDE. Vše v tool window <b>Moodle</b>.

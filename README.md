@@ -4,6 +4,17 @@ Přihlásí uživatele do [Moodle VŠE](https://moodle.vse.cz) přes školní SS
 Z kurzu stáhne otevřené úlohy **VPL** (Virtual Programming Lab). Student úlohu otevře jako projekt v IntelliJ,
 naprogramuje ji, ověří (vyhodnocení ve VPL) a odevzdá do Moodle.
 
+## Instalace (pro studenty)
+
+Potřeba je **IntelliJ IDEA 2026.1 nebo novější** a pro úlohy v Javě nějaké JDK nastavené v IDE.
+
+1. Stáhněte `moodle-vse-<verze>.zip` (soubor **nerozbalujte**).
+2. V IntelliJ: *Settings → Plugins → ⚙ → Install Plugin from Disk…* a vyberte ZIP. Potvrďte restart IDE.
+3. Vpravo otevřete okno **Moodle** → karta *Účet* → *Přihlásit se* (školní Microsoft účet).
+4. Na kartě *Úlohy* vyberte úlohu a klikněte na *Otevřít v IntelliJ*.
+
+Novou verzi pluginu nainstalujete stejně, přes starou.
+
 ## Spuštění
 
 Potřeba je JDK 21 (Gradle si ho případně stáhne přes toolchains).
