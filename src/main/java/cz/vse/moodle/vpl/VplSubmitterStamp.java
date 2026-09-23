@@ -5,6 +5,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.nio.charset.StandardCharsets;
+import java.text.Normalizer;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -12,13 +13,18 @@ import java.util.regex.Pattern;
 
 /**
  * Appends a comment identifying the submitter to the end of each submitted source file
- * (e.g. {@code // Odevzdal(a) přes IntelliJ (Moodle VŠE): jan.novak@vse.cz}).
+ * (e.g. {@code // Odevzdano pres IntelliJ (Moodle VSE): jan.novak@vse.cz}).
+ * <p>
+ * The stamp is pure ASCII: VPL jail servers may compile with {@code US-ASCII}, and javac then rejects any other
+ * character, even inside a comment.
  * <p>
  * Only the copy sent to Moodle is stamped; downloaded files are un-stamped, so the stamp never accumulates.
  * Files without a known comment syntax (data files read by tests, binaries) are left untouched.
  */
 public final class VplSubmitterStamp {
-    static final String MARKER = "Odevzdal(a) přes IntelliJ (Moodle VŠE):";
+    static final String MARKER = "Odevzdano pres IntelliJ (Moodle VSE):";
+    /** Non-ASCII marker of plugin 0.1.0; still stripped so old stamps don't stay in re-submitted files. */
+    static final String LEGACY_MARKER = "Odevzdal(a) přes IntelliJ (Moodle VŠE):";
 
     private record Syntax(@NotNull String prefix, @NotNull String suffix) {
     }
@@ -63,7 +69,7 @@ public final class VplSubmitterStamp {
         StringBuilder stamped = new StringBuilder(text);
         if (!text.isEmpty() && !text.endsWith("\n")) stamped.append(newline);
         // Keep the comment on one line and never let the value close the comment early.
-        String safe = submitter.replaceAll("[\\r\\n]", " ").replace("*/", "* /").replace("-->", "- ->");
+        String safe = toAscii(submitter).replaceAll("[\\r\\n]", " ").replace("*/", "* /").replace("-->", "- ->");
         stamped.append(syntax.prefix()).append(MARKER).append(' ').append(safe).append(syntax.suffix()).append(newline);
         return new VplFile(file.name(), stamped.toString().getBytes(StandardCharsets.UTF_8));
     }
@@ -75,9 +81,16 @@ public final class VplSubmitterStamp {
         return stripped.equals(text) ? file : new VplFile(file.name(), stripped.getBytes(StandardCharsets.UTF_8));
     }
 
-    /** Removes trailing stamp lines (any comment syntax), keeping the rest byte for byte. */
+    /** "Nováková" -> "Novakova"; any other non-ASCII character becomes '?'. */
+    static @NotNull String toAscii(@NotNull String text) {
+        String decomposed = Normalizer.normalize(text, Normalizer.Form.NFD).replaceAll("\\p{M}+", "");
+        return decomposed.replaceAll("[^\\x20-\\x7E]", "?");
+    }
+
+    /** Removes trailing stamp lines (any comment syntax, current or legacy marker), keeping the rest byte for byte. */
     private static @NotNull String stripText(@NotNull String text) {
-        Pattern trailingStamp = Pattern.compile("(?:^|(?<=\\n))[^\\n]*" + Pattern.quote(MARKER) + "[^\\n]*(?:\\r?\\n)?\\z");
+        Pattern trailingStamp = Pattern.compile("(?:^|(?<=\\n))[^\\n]*(?:" + Pattern.quote(MARKER) + "|"
+            + Pattern.quote(LEGACY_MARKER) + ")[^\\n]*(?:\\r?\\n)?\\z");
         String result = text;
         while (true) {
             String next = trailingStamp.matcher(result).replaceFirst("");

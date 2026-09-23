@@ -9,6 +9,7 @@ import java.util.List;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
 
 public class VplSubmitterStampTest {
     private static String text(VplFile file) {
@@ -49,6 +50,25 @@ public class VplSubmitterStampTest {
 
         assertArrayEquals(original.data(), VplSubmitterStamp.strip(once).data());
         assertEquals(List.of(original), VplSubmitterStamp.strip(List.of(once)));
+    }
+
+    @Test
+    public void stampIsPureAscii() {
+        // VPL jails may run javac with US-ASCII; any other byte breaks the compilation.
+        VplFile stamped = VplSubmitterStamp.apply(VplFile.text("Vstupy.java", "class Vstupy {}\n"), "jiří.nováková@vse.cz☃");
+        String stamp = text(stamped).substring("class Vstupy {}\n".length());
+        assertEquals("// Odevzdano pres IntelliJ (Moodle VSE): jiri.novakova@vse.cz?\n", stamp);
+        for (char c : stamp.toCharArray()) {
+            assertTrue("non-ASCII char " + (int) c, c < 128);
+        }
+    }
+
+    @Test
+    public void replacesLegacyNonAsciiStamp() {
+        VplFile legacy = VplFile.text("Vstupy.java", "class Vstupy {}\n// " + VplSubmitterStamp.LEGACY_MARKER + " mict01@vse.cz\n");
+        assertEquals("class Vstupy {}\n", text(VplSubmitterStamp.strip(legacy)));
+        assertEquals("class Vstupy {}\n// " + VplSubmitterStamp.MARKER + " mict01@vse.cz\n",
+            text(VplSubmitterStamp.apply(legacy, "mict01@vse.cz")));
     }
 
     @Test
