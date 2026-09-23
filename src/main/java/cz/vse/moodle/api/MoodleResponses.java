@@ -64,12 +64,35 @@ public final class MoodleResponses {
             exception);
     }
 
-    static @Nullable String getString(@NotNull JsonObject obj, @NotNull String key) {
+    public static @Nullable String getString(@NotNull JsonObject obj, @NotNull String key) {
         JsonElement value = obj.get(key);
         return value != null && value.isJsonPrimitive() ? value.getAsString() : null;
     }
 
-    static int getInt(@NotNull JsonObject obj, @NotNull String key, int defaultValue) {
+    public static long getLong(@NotNull JsonObject obj, @NotNull String key, long defaultValue) {
+        JsonElement value = obj.get(key);
+        if (value == null || !value.isJsonPrimitive()) {
+            return defaultValue;
+        }
+        try {
+            return value.getAsLong();
+        }
+        catch (NumberFormatException e) {
+            return defaultValue;
+        }
+    }
+
+    /** Moodle sends booleans as true/false or 0/1 depending on the function. */
+    public static boolean getBoolean(@NotNull JsonObject obj, @NotNull String key, boolean defaultValue) {
+        JsonElement value = obj.get(key);
+        if (value == null || !value.isJsonPrimitive()) {
+            return defaultValue;
+        }
+        String text = value.getAsString();
+        return "true".equalsIgnoreCase(text) || "1".equals(text);
+    }
+
+    public static int getInt(@NotNull JsonObject obj, @NotNull String key, int defaultValue) {
         JsonElement value = obj.get(key);
         if (value == null || !value.isJsonPrimitive()) {
             return defaultValue;

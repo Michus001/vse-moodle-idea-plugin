@@ -6,7 +6,8 @@
 
     <description><![CDATA[
     Přihlášení do <a href="https://moodle.vse.cz">Moodle VŠE</a> přes SSO (stejně jako mobilní aplikace Moodle)
-    a zobrazení údajů přihlášeného uživatele v tool window <b>Moodle</b>.
+    a práce s úlohami <b>VPL</b> (Virtual Programming Lab): seznam otevřených úloh kurzu, otevření úlohy jako projektu,
+    odevzdání a vyhodnocení přímo z IDE. Vše v tool window <b>Moodle</b>.
     ]]></description>
 
     <depends>com.intellij.modules.platform</depends>
@@ -16,9 +17,22 @@
                     factoryClass="cz.vse.moodle.ui.MoodleToolWindowFactory"/>
         <applicationConfigurable id="cz.vse.moodle.settings" parentId="tools" displayName="Moodle VŠE"
                                  instance="cz.vse.moodle.settings.MoodleSettingsConfigurable"/>
+        <notificationGroup id="Moodle VŠE" displayType="BALLOON"/>
     </extensions>
 
     <applicationListeners>
         <listener class="cz.vse.moodle.session.MoodleStartupListener" topic="com.intellij.ide.AppLifecycleListener"/>
     </applicationListeners>
+
+    <actions>
+        <group id="cz.vse.moodle.vpl.Menu" text="Moodle VPL" popup="true">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+            <action id="cz.vse.moodle.vpl.Evaluate" class="cz.vse.moodle.vpl.VplTaskAction$Evaluate"
+                    text="Ověřit úlohu" description="Odevzdá soubory projektu do Moodle a nechá je vyhodnotit VPL"/>
+            <action id="cz.vse.moodle.vpl.Submit" class="cz.vse.moodle.vpl.VplTaskAction$Submit"
+                    text="Odevzdat úlohu" description="Odevzdá soubory projektu do Moodle bez vyhodnocení"/>
+            <action id="cz.vse.moodle.vpl.Download" class="cz.vse.moodle.vpl.VplTaskAction$Download"
+                    text="Stáhnout úlohu z Moodle" description="Přepíše místní soubory posledním odevzdáním z Moodle"/>
+        </group>
+    </actions>
 </idea-plugin>

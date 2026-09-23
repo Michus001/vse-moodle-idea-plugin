@@ -42,6 +42,7 @@ public final class MoodleSessionService {
     private final AtomicLong generation = new AtomicLong();
     private volatile @NotNull MoodleSessionState state = MoodleSessionState.UNKNOWN;
     private volatile @Nullable MoodleClient client;
+    private volatile @Nullable String privateToken;
 
     public static @NotNull MoodleSessionService getInstance() {
         return ApplicationManager.getApplication().getService(MoodleSessionService.class);
@@ -54,6 +55,14 @@ public final class MoodleSessionService {
     /** Client for the logged-in user, or null when not logged in. Use it from background threads only. */
     public @Nullable MoodleClient getClient() {
         return client;
+    }
+
+    /**
+     * Private token of the logged-in user, needed to open a Moodle web session ({@code tool_mobile_get_autologin_key}).
+     * Null after a manual token login and for site administrators.
+     */
+    public @Nullable String getPrivateToken() {
+        return privateToken;
     }
 
     /** Verifies the stored token unless that has already been done. */
@@ -144,6 +153,7 @@ public final class MoodleSessionService {
         generation.incrementAndGet();
         String siteUrl = MoodleSettings.getInstance().getSiteUrl();
         client = null;
+        privateToken = null;
         setState(MoodleSessionState.loggedOut(null));
         ApplicationManager.getApplication().executeOnPooledThread(() -> MoodleCredentialStore.clear(siteUrl));
     }
@@ -151,6 +161,7 @@ public final class MoodleSessionService {
     /** Called after the site URL was changed in the settings; tokens are stored per site. */
     public void siteUrlChanged() {
         client = null;
+        privateToken = null;
         restoreSession();
     }
 
@@ -167,6 +178,7 @@ public final class MoodleSessionService {
         new Task.Backgroundable(project, "Moodle VŠE: ověřování přihlášení", false) {
             private MoodleSessionState result;
             private MoodleClient newClient;
+            private String newPrivateToken;
 
             @Override
             public void run(@NotNull ProgressIndicator indicator) {
@@ -182,6 +194,7 @@ public final class MoodleSessionService {
                         MoodleCredentialStore.save(siteUrl, newToken);
                     }
                     newClient = candidate;
+                    newPrivateToken = token.privateToken();
                     result = MoodleSessionState.loggedIn(user);
                 }
                 catch (MoodleException e) {
@@ -208,6 +221,7 @@ public final class MoodleSessionService {
             public void onSuccess() {
                 if (isStale(gen)) return;
                 client = newClient;
+                privateToken = newPrivateToken;
                 setState(result);
             }
 
