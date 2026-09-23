@@ -1,0 +1,24 @@
+<!-- Plugin Configuration File. Read more: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
+<idea-plugin>
+    <id>cz.vse.moodle</id>
+    <name>Moodle VŠE</name>
+    <vendor>VŠE</vendor>
+
+    <description><![CDATA[
+    Přihlášení do <a href="https://moodle.vse.cz">Moodle VŠE</a> přes SSO (stejně jako mobilní aplikace Moodle)
+    a zobrazení údajů přihlášeného uživatele v tool window <b>Moodle</b>.
+    ]]></description>
+
+    <depends>com.intellij.modules.platform</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <toolWindow id="Moodle" anchor="right" icon="/icons/moodle.svg"
+                    factoryClass="cz.vse.moodle.ui.MoodleToolWindowFactory"/>
+        <applicationConfigurable id="cz.vse.moodle.settings" parentId="tools" displayName="Moodle VŠE"
+                                 instance="cz.vse.moodle.settings.MoodleSettingsConfigurable"/>
+    </extensions>
+
+    <applicationListeners>
+        <listener class="cz.vse.moodle.session.MoodleStartupListener" topic="com.intellij.ide.AppLifecycleListener"/>
+    </applicationListeners>
+</idea-plugin>
