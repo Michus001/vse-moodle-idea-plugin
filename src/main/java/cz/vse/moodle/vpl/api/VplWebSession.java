@@ -1,5 +1,6 @@
 package cz.vse.moodle.vpl.api;
 
+import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import cz.vse.moodle.api.AutologinKey;
@@ -13,6 +14,8 @@ import org.jetbrains.annotations.Nullable;
 import java.io.IOException;
 import java.net.CookieManager;
 import java.net.CookiePolicy;
+import java.net.HttpCookie;
+import java.net.URI;
 import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpResponse;
@@ -35,13 +38,15 @@ public final class VplWebSession {
 
     private final String siteUrl;
     private final long userId;
+    private final CookieManager cookies;
     private final HttpClient http;
     private final String sesskey;
 
-    private VplWebSession(@NotNull String siteUrl, long userId, @NotNull HttpClient http, @NotNull String sesskey) {
+    private VplWebSession(@NotNull String siteUrl, long userId, @NotNull CookieManager cookies, @NotNull String sesskey) {
         this.siteUrl = siteUrl;
         this.userId = userId;
-        this.http = http;
+        this.cookies = cookies;
+        this.http = MoodleHttp.newCookieClient(cookies);
         this.sesskey = sesskey;
     }
 
@@ -52,7 +57,8 @@ public final class VplWebSession {
     public static @NotNull VplWebSession open(@NotNull MoodleClient client, long userId, @NotNull String privateToken)
         throws IOException, MoodleException {
         AutologinKey key = client.getAutologinKey(privateToken);
-        HttpClient http = MoodleHttp.newCookieClient(new CookieManager(null, CookiePolicy.ACCEPT_ALL));
+        CookieManager cookies = new CookieManager(null, CookiePolicy.ACCEPT_ALL);
+        HttpClient http = MoodleHttp.newCookieClient(cookies);
         String site = client.getSiteUrl();
         String url = key.autologinUrl()
             + "?userid=" + userId
@@ -63,7 +69,68 @@ public final class VplWebSession {
         if (sesskey == null || response.uri().getPath().contains("/login/")) {
             throw new MoodleException("autologinfailed", "Moodle nepřijal automatické přihlášení do webu. Zkuste se odhlásit a znovu přihlásit.");
         }
-        return new VplWebSession(site, userId, http, sesskey);
+        return new VplWebSession(site, userId, cookies, sesskey);
+    }
+
+    /**
+     * Serializes the session (cookies + sesskey) so it survives an IDE restart; without that every restart
+     * would need a new auto-login key, which Moodle allows only every 6 minutes. The result is a secret.
+     */
+    public @NotNull String serialize() {
+        JsonObject json = new JsonObject();
+        json.addProperty("siteUrl", siteUrl);
+        json.addProperty("userId", userId);
+        json.addProperty("sesskey", sesskey);
+        JsonArray list = new JsonArray();
+        for (HttpCookie cookie : cookies.getCookieStore().getCookies()) {
+            if (cookie.hasExpired()) continue;
+            JsonObject item = new JsonObject();
+            item.addProperty("name", cookie.getName());
+            item.addProperty("value", cookie.getValue());
+            item.addProperty("path", cookie.getPath() != null ? cookie.getPath() : "/");
+            list.add(item);
+        }
+        json.add("cookies", list);
+        return json.toString();
+    }
+
+    /** Recreates a session from {@link #serialize()}; null when the data is unusable or for another site/user. */
+    public static @Nullable VplWebSession restore(@NotNull String serialized, @NotNull String siteUrl, long userId) {
+        try {
+            JsonElement parsed = MoodleResponses.parseJson(serialized);
+            if (!parsed.isJsonObject()) return null;
+            JsonObject json = parsed.getAsJsonObject();
+            String sesskey = MoodleResponses.getString(json, "sesskey");
+            if (!siteUrl.equals(MoodleResponses.getString(json, "siteUrl"))
+                || MoodleResponses.getLong(json, "userId", -1) != userId || sesskey == null
+                || !(json.get("cookies") instanceof JsonArray list) || list.isEmpty()) {
+                return null;
+            }
+            URI site = URI.create(siteUrl + "/");
+            CookieManager cookies = new CookieManager(null, CookiePolicy.ACCEPT_ALL);
+            for (JsonElement element : list) {
+                if (!element.isJsonObject()) continue;
+                JsonObject item = element.getAsJsonObject();
+                String name = MoodleResponses.getString(item, "name");
+                String value = MoodleResponses.getString(item, "value");
+                if (name == null || value == null) continue;
+                HttpCookie cookie = new HttpCookie(name, value);
+                cookie.setPath(MoodleResponses.getString(item, "path"));
+                cookie.setDomain(site.getHost());
+                cookie.setVersion(0);
+                cookie.setSecure("https".equals(site.getScheme()));
+                cookies.getCookieStore().add(site, cookie);
+            }
+            return new VplWebSession(siteUrl, userId, cookies, sesskey);
+        }
+        catch (MoodleException | IllegalArgumentException e) {
+            return null;
+        }
+    }
+
+    /** Cookie header values the session sends to {@code uri}. */
+    @NotNull java.util.List<String> cookieHeaderFor(@NotNull URI uri) throws IOException {
+        return cookies.get(uri, java.util.Map.of()).getOrDefault("Cookie", java.util.List.of());
     }
 
     public @NotNull String getSiteUrl() {
