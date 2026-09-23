@@ -43,6 +43,7 @@ public final class VplTaskOpener {
         new Task.Backgroundable(current, "Moodle VPL: stahování úlohy " + activity.name(), true) {
             private Path dir;
             private String firstFile;
+            private VirtualFile fileToOpen;
             private String error;
 
             @Override
@@ -85,6 +86,21 @@ public final class VplTaskOpener {
                 catch (IOException | MoodleException e) {
                     LOG.info("Could not download VPL task " + activity.id(), e);
                     error = VplTaskService.errorMessage(e);
+                    return;
+                }
+                // VFS refresh is slow, so it must not run on the EDT.
+                indicator.setText("Připravuji projekt…");
+                VirtualFile root = LocalFileSystem.getInstance().refreshAndFindFileByNioFile(dir);
+                if (root != null) {
+                    root.refresh(false, true);
+                }
+                if (firstFile != null) {
+                    try {
+                        fileToOpen = LocalFileSystem.getInstance().refreshAndFindFileByNioFile(VplProjectFiles.resolve(dir, firstFile));
+                    }
+                    catch (IOException ignored) {
+                        // invalid name: nothing to open
+                    }
                 }
             }
 
@@ -94,7 +110,7 @@ public final class VplTaskOpener {
                     Messages.showErrorDialog(current, error, "Úlohu se nepodařilo stáhnout");
                     return;
                 }
-                openProject(dir, firstFile);
+                openProject(dir, fileToOpen);
             }
         }.queue();
     }
@@ -139,11 +155,8 @@ public final class VplTaskOpener {
         return major;
     }
 
-    private static void openProject(@NotNull Path dir, @Nullable String firstFile) {
-        VirtualFile root = LocalFileSystem.getInstance().refreshAndFindFileByNioFile(dir);
-        if (root != null) {
-            root.refresh(false, true);
-        }
+    /** Runs on the EDT; the VFS was already refreshed in the background. */
+    private static void openProject(@NotNull Path dir, @Nullable VirtualFile fileToOpen) {
         Project project = ProjectUtil.openOrImport(dir, null, true);
         if (project == null) return;
         ToolWindowManager.getInstance(project).invokeLater(() -> {
@@ -151,16 +164,8 @@ public final class VplTaskOpener {
             if (toolWindow != null) {
                 toolWindow.activate(null, false);
             }
-            if (firstFile != null) {
-                try {
-                    VirtualFile file = LocalFileSystem.getInstance().refreshAndFindFileByNioFile(VplProjectFiles.resolve(dir, firstFile));
-                    if (file != null) {
-                        FileEditorManager.getInstance(project).openFile(file, true);
-                    }
-                }
-                catch (IOException ignored) {
-                    // invalid name: nothing to open
-                }
+            if (fileToOpen != null && fileToOpen.isValid()) {
+                FileEditorManager.getInstance(project).openFile(fileToOpen, true);
             }
         });
     }

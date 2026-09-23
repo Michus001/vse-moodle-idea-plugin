@@ -4,6 +4,7 @@ import com.intellij.notification.NotificationGroupManager;
 import com.intellij.notification.NotificationType;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.application.ModalityState;
+import com.intellij.openapi.application.WriteIntentReadAction;
 import com.intellij.openapi.components.Service;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.fileEditor.FileDocumentManager;
@@ -137,8 +138,8 @@ public final class VplTaskService {
                 "Vyhodnocení se penalizuje", "Vyhodnotit", "Zrušit", Messages.getWarningIcon());
             if (answer != Messages.YES) return;
         }
+        saveAllDocuments();
         if (!busy.compareAndSet(false, true)) return;
-        FileDocumentManager.getInstance().saveAllDocuments();
         setStatus("Odevzdávám…", false);
 
         new Task.Backgroundable(project, evaluate ? "Moodle VPL: ověření úlohy" : "Moodle VPL: odevzdání úlohy", true) {
@@ -247,8 +248,9 @@ public final class VplTaskService {
             "Soubory úlohy se přepíší posledním odevzdáním z Moodle (soubory, které v Moodle nejsou, zůstanou).\n"
                 + "Neodevzdané změny v přepsaných souborech se ztratí.",
             "Stáhnout z Moodle", "Stáhnout", "Zrušit", Messages.getWarningIcon());
-        if (answer != Messages.YES || !busy.compareAndSet(false, true)) return;
-        FileDocumentManager.getInstance().saveAllDocuments();
+        if (answer != Messages.YES) return;
+        saveAllDocuments();
+        if (!busy.compareAndSet(false, true)) return;
         setStatus("Stahuji z Moodle…", false);
 
         new Task.Backgroundable(project, "Moodle VPL: stahování úlohy", true) {
@@ -302,6 +304,11 @@ public final class VplTaskService {
             "Novější odevzdání v Moodle", "Odevzdat", "Zrušit", Messages.getWarningIcon()) == Messages.YES),
             ModalityState.defaultModalityState());
         return confirmed.get();
+    }
+
+    /** Button listeners run on the EDT without the write-intent lock that saving documents needs. */
+    private static void saveAllDocuments() {
+        WriteIntentReadAction.run((Runnable) () -> FileDocumentManager.getInstance().saveAllDocuments());
     }
 
     private @Nullable Path projectRoot() {
