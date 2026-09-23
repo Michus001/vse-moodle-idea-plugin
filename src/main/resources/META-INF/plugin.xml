@@ -12,6 +12,9 @@
     ]]></description>
 
     <depends>com.intellij.modules.platform</depends>
+    <!-- Embedded browser for SSO login. Part of the core in 2026.1 (alias), a separate bundled plugin since 2026.2;
+         without this dependency the plugin can't see JBCefApp there. -->
+    <depends>com.intellij.modules.jcef</depends>
 
     <extensions defaultExtensionNs="com.intellij">
         <toolWindow id="Moodle" anchor="right" icon="/icons/moodle.svg"

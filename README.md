@@ -6,7 +6,8 @@ naprogramuje ji, ověří (vyhodnocení ve VPL) a odevzdá do Moodle.
 
 ## Instalace (pro studenty)
 
-Potřeba je **IntelliJ IDEA 2026.1 nebo novější** a pro úlohy v Javě nějaké JDK nastavené v IDE.
+Potřeba je **IntelliJ IDEA 2026.1 nebo novější** (Plugin Verifier: kompatibilní s 2026.1.5 i 2026.2.3) a pro úlohy v Javě nějaké JDK nastavené v IDE.
+Přihlášení používá vestavěný prohlížeč; od 2026.2 je to samostatný bundled plugin *Web Browser (JCEF)*, který musí zůstat zapnutý.
 
 1. Stáhněte `moodle-vse-<verze>.zip` (soubor **nerozbalujte**).
 2. V IntelliJ: *Settings → Plugins → ⚙ → Install Plugin from Disk…* a vyberte ZIP. Potvrďte restart IDE.
@@ -23,6 +24,8 @@ Potřeba je JDK 21 (Gradle si ho případně stáhne přes toolchains).
 ./gradlew runIde        # spustí sandbox IntelliJ IDEA s pluginem
 ./gradlew test          # unit testy
 ./gradlew buildPlugin   # build/distributions/moodle-vse-<verze>.zip
+./gradlew verifyPlugin  # Plugin Verifier proti 2026.1.5 a 2026.2.3
+./gradlew runIde262     # sandbox s IntelliJ 2026.2.3 (JCEF je tam samostatný plugin)
 ```
 
 ZIP se instaluje přes *Settings → Plugins → ⚙ → Install Plugin from Disk…*

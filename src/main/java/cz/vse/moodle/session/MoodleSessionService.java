@@ -79,7 +79,7 @@ public final class MoodleSessionService {
 
     /** Starts the SSO login in an embedded browser, or the manual token dialog when JCEF isn't available. */
     public void login(@Nullable Project project) {
-        if (!JBCefApp.isSupported()) {
+        if (!isEmbeddedBrowserAvailable()) {
             loginWithToken(project);
             return;
         }
@@ -138,6 +138,20 @@ public final class MoodleSessionService {
                 if (!isStale(gen)) setState(MoodleSessionState.loggedOut("Přihlášení selhalo: " + error.getMessage()));
             }
         }.queue();
+    }
+
+    /**
+     * False when JCEF isn't supported or its classes aren't visible (e.g. the "Web Browser (JCEF)" plugin is
+     * disabled in 2026.2+); the manual token dialog is used instead of crashing.
+     */
+    private static boolean isEmbeddedBrowserAvailable() {
+        try {
+            return JBCefApp.isSupported();
+        }
+        catch (LinkageError e) {
+            LOG.warn("JCEF classes not available, falling back to manual token login", e);
+            return false;
+        }
     }
 
     /** Asks the user to paste a token (Moodle: Preferences | Security keys) and verifies it. */
