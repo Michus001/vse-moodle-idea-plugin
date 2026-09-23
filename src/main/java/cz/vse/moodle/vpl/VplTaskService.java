@@ -17,6 +17,7 @@ import com.intellij.openapi.vfs.VirtualFile;
 import cz.vse.moodle.api.MoodleException;
 import cz.vse.moodle.api.SiteUrls;
 import cz.vse.moodle.session.MoodleSessionService;
+import cz.vse.moodle.session.MoodleUser;
 import cz.vse.moodle.vpl.api.VplApi;
 import cz.vse.moodle.vpl.api.VplExecution;
 import cz.vse.moodle.vpl.api.VplFile;
@@ -156,6 +157,7 @@ public final class VplTaskService {
                         setStatus("Ve složce úlohy nejsou žádné soubory k odevzdání.", true);
                         return;
                     }
+                    files = VplSubmitterStamp.apply(files, submitter());
                     VplSaveResult save = api.save(task.cmid, files, "", task.version);
                     if (!save.saved()) {
                         if (!confirmOverwrite(save.question())) {
@@ -258,7 +260,7 @@ public final class VplTaskService {
             public void run(@NotNull ProgressIndicator indicator) {
                 try {
                     VplSubmission submission = VplService.getInstance().getApi().load(task.cmid);
-                    VplProjectFiles.writeFiles(root, submission.files());
+                    VplProjectFiles.writeFiles(root, VplSubmitterStamp.strip(submission.files()));
                     task.version = submission.version();
                     task.write(root);
                     lastResult = submission.result();
@@ -280,6 +282,15 @@ public final class VplTaskService {
                 finish();
             }
         }.queue();
+    }
+
+    /** E-mail of the logged-in student for {@link VplSubmitterStamp}; the username when Moodle hides the e-mail. */
+    private static @NotNull String submitter() throws MoodleException {
+        MoodleUser user = MoodleSessionService.getInstance().getState().user();
+        if (user == null) {
+            throw new MoodleException("notloggedin", "Nejste přihlášeni do Moodle.");
+        }
+        return user.email() != null ? user.email() : user.username();
     }
 
     /** Tasks are bound to a site; refuse to submit to another one configured in the meantime. */

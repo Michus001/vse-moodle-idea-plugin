@@ -52,7 +52,10 @@ Tool window **Moodle** má karty **Úlohy**, **Účet** a v projektu úlohy nav�
    - *Zadání v Moodle*: otevře stránku úlohy v prohlížeči.
 
 Odevzdávají se všechny soubory ve složce úlohy kromě `.idea/`, `*.iml`, `out/`, `build/`, `target/`, `bin/`, `.git/`
-a `.moodle-vpl.json` (vazba projektu na úlohu, bez tajných údajů). Soubory nad 1 MB plugin odmítne. Když mezitím v Moodle
+a `.moodle-vpl.json` (vazba projektu na úlohu, bez tajných údajů). Soubory nad 1 MB plugin odmítne.
+Na konec každého zdrojového souboru v odevzdané kopii plugin připojí komentář s e-mailem přihlášeného studenta
+(např. `// Odevzdal(a) přes IntelliJ (Moodle VŠE): jan.novak@vse.cz`; bez e-mailu uživatelské jméno). Lokální soubory
+se nemění, datové a binární soubory (`.txt`, `.csv`…) zůstanou bez komentáře a při stažení z Moodle se komentář odstraní. Když mezitím v Moodle
 vzniklo novější odevzdání (např. z webového editoru), VPL se zeptá, jestli ho přepsat.
 
 ## Jak funguje přihlášení

@@ -65,7 +65,7 @@ public final class VplTaskOpener {
                     List<VplFile> requested = api.requestedFiles(activity.id());
                     indicator.setText("Stahuji poslední odevzdání…");
                     VplSubmission submission = api.load(activity.id());
-                    List<VplFile> files = submission.files().isEmpty() ? requested : submission.files();
+                    List<VplFile> files = VplSubmitterStamp.strip(submission.files().isEmpty() ? requested : submission.files());
 
                     Files.createDirectories(dir);
                     VplProjectFiles.writeFiles(dir, files);
