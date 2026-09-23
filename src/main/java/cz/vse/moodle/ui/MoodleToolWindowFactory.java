@@ -25,7 +25,7 @@ public final class MoodleToolWindowFactory implements ToolWindowFactory, DumbAwa
         VplAssignmentsPanel assignments = new VplAssignmentsPanel(project);
         addContent(contents, assignments, "Úlohy", assignments);
         MoodleAccountPanel account = new MoodleAccountPanel(project);
-        addContent(contents, account, "Účet", account);
+        addContent(contents, account, "Student", account);
         contents.setSelectedContent(contents.getContent(0));
 
         // Normally done at IDE startup; covers the plugin being installed/enabled without a restart.

@@ -164,7 +164,7 @@ final class VplAssignmentsPanel extends JPanel implements Disposable {
             return;
         }
         if (client == null) {
-            showStatus("Pro zobrazení úloh se přihlaste na kartě Účet.", false);
+            showStatus("Pro zobrazení úloh se přihlaste na kartě Student.", false);
             return;
         }
         showStatus("Načítám úlohy…", false);

@@ -52,7 +52,7 @@ public final class VplService implements Disposable {
     public static @NotNull MoodleClient requireClient() throws MoodleException {
         MoodleClient client = MoodleSessionService.getInstance().getClient();
         if (client == null) {
-            throw new MoodleException("notloggedin", "Nejste přihlášeni do Moodle. Přihlaste se v okně Moodle na kartě Účet.");
+            throw new MoodleException("notloggedin", "Nejste přihlášeni do Moodle. Přihlaste se v okně Moodle na kartě Student.");
         }
         return client;
     }

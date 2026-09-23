@@ -12,8 +12,11 @@ import java.util.Map;
 import java.util.regex.Pattern;
 
 /**
- * Appends a comment identifying the submitter to the end of each submitted source file
- * (e.g. {@code // Odevzdano pres IntelliJ (Moodle VSE): jan.novak@vse.cz}).
+ * Appends comments identifying the submitter and the other team members to the end of each submitted source file:
+ * <pre>
+ * // Odevzdano pres IntelliJ (Moodle VSE): jan.novak@vse.cz
+ * // Clen tymu (Moodle VSE): xdvop02@vse.cz
+ * </pre>
  * <p>
  * The stamp is pure ASCII: VPL jail servers may compile with {@code US-ASCII}, and javac then rejects any other
  * character, even inside a comment.
@@ -23,6 +26,8 @@ import java.util.regex.Pattern;
  */
 public final class VplSubmitterStamp {
     static final String MARKER = "Odevzdano pres IntelliJ (Moodle VSE):";
+    /** One line per other team member, below the submitter. */
+    static final String TEAM_MARKER = "Clen tymu (Moodle VSE):";
     /** Non-ASCII marker of plugin 0.1.0; still stripped so old stamps don't stay in re-submitted files. */
     static final String LEGACY_MARKER = "Odevzdal(a) přes IntelliJ (Moodle VŠE):";
 
@@ -52,9 +57,15 @@ public final class VplSubmitterStamp {
     private VplSubmitterStamp() {
     }
 
-    /** Returns the files with the stamp appended where possible; {@code submitter} is the e-mail (or username). */
-    public static @NotNull List<VplFile> apply(@NotNull List<VplFile> files, @NotNull String submitter) {
-        return files.stream().map(file -> apply(file, submitter)).toList();
+    /**
+     * Returns the files with the stamp appended where possible.
+     *
+     * @param submitter   e-mail (or username) of the logged-in student
+     * @param teamMembers other team members; each gets its own line below the submitter
+     */
+    public static @NotNull List<VplFile> apply(@NotNull List<VplFile> files, @NotNull String submitter,
+                                               @NotNull List<String> teamMembers) {
+        return files.stream().map(file -> apply(file, submitter, teamMembers)).toList();
     }
 
     public static @NotNull List<VplFile> strip(@NotNull List<VplFile> files) {
@@ -62,16 +73,35 @@ public final class VplSubmitterStamp {
     }
 
     static @NotNull VplFile apply(@NotNull VplFile file, @NotNull String submitter) {
+        return apply(file, submitter, List.of());
+    }
+
+    static @NotNull VplFile apply(@NotNull VplFile file, @NotNull String submitter, @NotNull List<String> teamMembers) {
         Syntax syntax = syntaxOf(file.name());
         if (syntax == null || file.isBinary()) return file;
         String text = stripText(new String(file.data(), StandardCharsets.UTF_8));
         String newline = text.contains("\r\n") ? "\r\n" : "\n";
         StringBuilder stamped = new StringBuilder(text);
         if (!text.isEmpty() && !text.endsWith("\n")) stamped.append(newline);
-        // Keep the comment on one line and never let the value close the comment early.
-        String safe = toAscii(submitter).replaceAll("[\\r\\n]", " ").replace("*/", "* /").replace("-->", "- ->");
-        stamped.append(syntax.prefix()).append(MARKER).append(' ').append(safe).append(syntax.suffix()).append(newline);
+        String submitterValue = safe(submitter);
+        appendLine(stamped, syntax, MARKER, submitterValue, newline);
+        for (String member : teamMembers) {
+            String value = safe(member);
+            if (!value.isBlank() && !value.equalsIgnoreCase(submitterValue)) {
+                appendLine(stamped, syntax, TEAM_MARKER, value, newline);
+            }
+        }
         return new VplFile(file.name(), stamped.toString().getBytes(StandardCharsets.UTF_8));
+    }
+
+    private static void appendLine(@NotNull StringBuilder out, @NotNull Syntax syntax, @NotNull String marker,
+                                   @NotNull String value, @NotNull String newline) {
+        out.append(syntax.prefix()).append(marker).append(' ').append(value).append(syntax.suffix()).append(newline);
+    }
+
+    /** ASCII, one line, and never able to close the comment early. */
+    private static @NotNull String safe(@NotNull String value) {
+        return toAscii(value).replaceAll("[\\r\\n]", " ").replace("*/", "* /").replace("-->", "- ->").trim();
     }
 
     static @NotNull VplFile strip(@NotNull VplFile file) {
@@ -90,7 +120,7 @@ public final class VplSubmitterStamp {
     /** Removes trailing stamp lines (any comment syntax, current or legacy marker), keeping the rest byte for byte. */
     private static @NotNull String stripText(@NotNull String text) {
         Pattern trailingStamp = Pattern.compile("(?:^|(?<=\\n))[^\\n]*(?:" + Pattern.quote(MARKER) + "|"
-            + Pattern.quote(LEGACY_MARKER) + ")[^\\n]*(?:\\r?\\n)?\\z");
+            + Pattern.quote(TEAM_MARKER) + "|" + Pattern.quote(LEGACY_MARKER) + ")[^\\n]*(?:\\r?\\n)?\\z");
         String result = text;
         while (true) {
             String next = trailingStamp.matcher(result).replaceFirst("");

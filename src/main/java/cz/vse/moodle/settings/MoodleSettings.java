@@ -27,6 +27,8 @@ public final class MoodleSettings implements PersistentStateComponent<MoodleSett
         public String courseIds = DEFAULT_COURSE_IDS;
         /** Where assignment projects are created; null means {@link #defaultProjectsDir()}. */
         public String projectsDir;
+        /** Other team members as typed in the Student tab (ASCII only), e.g. "xnovj01@vse.cz, xdvop02@vse.cz". */
+        public String teamMembers = "";
     }
 
     private SettingsState state = new SettingsState();
@@ -66,6 +68,29 @@ public final class MoodleSettings implements PersistentStateComponent<MoodleSett
 
     public void setProjectsDir(@Nullable String dir) {
         state.projectsDir = dir == null || dir.isBlank() || Path.of(dir).equals(defaultProjectsDir()) ? null : dir.trim();
+    }
+
+    public @NotNull String getTeamMembersText() {
+        return state.teamMembers != null ? state.teamMembers : "";
+    }
+
+    public void setTeamMembersText(@NotNull String text) {
+        state.teamMembers = text;
+    }
+
+    /** Team members to add to submitted files, in the typed order without duplicates. */
+    public @NotNull List<String> getTeamMembers() {
+        return parseTeamMembers(getTeamMembersText());
+    }
+
+    /** Splits "a@vse.cz, b@vse.cz; c" on commas, semicolons and line breaks. */
+    public static @NotNull List<String> parseTeamMembers(@NotNull String text) {
+        LinkedHashSet<String> members = new LinkedHashSet<>();
+        for (String part : text.split("[,;\\r\\n]+")) {
+            String member = part.trim().replaceAll("\\s+", " ");
+            if (!member.isEmpty()) members.add(member);
+        }
+        return new ArrayList<>(members);
     }
 
     public static @NotNull Path defaultProjectsDir() {

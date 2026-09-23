@@ -1,5 +1,6 @@
 package cz.vse.moodle.vpl;
 
+import cz.vse.moodle.settings.MoodleSettings;
 import cz.vse.moodle.vpl.api.VplFile;
 import org.junit.Test;
 
@@ -69,6 +70,31 @@ public class VplSubmitterStampTest {
         assertEquals("class Vstupy {}\n", text(VplSubmitterStamp.strip(legacy)));
         assertEquals("class Vstupy {}\n// " + VplSubmitterStamp.MARKER + " mict01@vse.cz\n",
             text(VplSubmitterStamp.apply(legacy, "mict01@vse.cz")));
+    }
+
+    @Test
+    public void addsTeamMembersBelowSubmitter() {
+        VplFile file = VplFile.text("Main.java", "class Main {}\n");
+        VplFile stamped = VplSubmitterStamp.apply(file, "mict01@vse.cz",
+            List.of("xnovj01@vse.cz", "Jiří Dvořák", "MICT01@vse.cz", " "));
+        assertEquals("class Main {}\n"
+            + "// " + VplSubmitterStamp.MARKER + " mict01@vse.cz\n"
+            + "// " + VplSubmitterStamp.TEAM_MARKER + " xnovj01@vse.cz\n"
+            + "// " + VplSubmitterStamp.TEAM_MARKER + " Jiri Dvorak\n", text(stamped));
+
+        // Re-submitting with a different team replaces all stamp lines; stripping restores the original.
+        VplFile changed = VplSubmitterStamp.apply(stamped, "mict01@vse.cz", List.of("eva@vse.cz"));
+        assertEquals("class Main {}\n"
+            + "// " + VplSubmitterStamp.MARKER + " mict01@vse.cz\n"
+            + "// " + VplSubmitterStamp.TEAM_MARKER + " eva@vse.cz\n", text(changed));
+        assertEquals("class Main {}\n", text(VplSubmitterStamp.strip(changed)));
+    }
+
+    @Test
+    public void parsesTeamMembersField() {
+        assertEquals(List.of("xnovj01@vse.cz", "xdvop02@vse.cz", "Jan Novak"),
+            MoodleSettings.parseTeamMembers(" xnovj01@vse.cz, xdvop02@vse.cz;;Jan   Novak, xnovj01@vse.cz "));
+        assertEquals(List.of(), MoodleSettings.parseTeamMembers("  , ; "));
     }
 
     @Test

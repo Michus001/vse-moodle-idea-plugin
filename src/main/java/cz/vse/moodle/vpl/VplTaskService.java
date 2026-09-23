@@ -18,6 +18,7 @@ import cz.vse.moodle.api.MoodleException;
 import cz.vse.moodle.api.SiteUrls;
 import cz.vse.moodle.session.MoodleSessionService;
 import cz.vse.moodle.session.MoodleUser;
+import cz.vse.moodle.settings.MoodleSettings;
 import cz.vse.moodle.vpl.api.VplApi;
 import cz.vse.moodle.vpl.api.VplExecution;
 import cz.vse.moodle.vpl.api.VplFile;
@@ -157,7 +158,7 @@ public final class VplTaskService {
                         setStatus("Ve složce úlohy nejsou žádné soubory k odevzdání.", true);
                         return;
                     }
-                    files = VplSubmitterStamp.apply(files, submitter());
+                    files = VplSubmitterStamp.apply(files, submitter(), MoodleSettings.getInstance().getTeamMembers());
                     VplSaveResult save = api.save(task.cmid, files, "", task.version);
                     if (!save.saved()) {
                         if (!confirmOverwrite(save.question())) {
@@ -297,7 +298,7 @@ public final class VplTaskService {
     private boolean checkSite(@NotNull VplTaskMetadata task, boolean report) {
         MoodleSessionService moodle = MoodleSessionService.getInstance();
         if (moodle.getClient() == null) {
-            if (report) setStatus("Nejste přihlášeni do Moodle. Přihlaste se na kartě Účet.", true);
+            if (report) setStatus("Nejste přihlášeni do Moodle. Přihlaste se na kartě Student.", true);
             return false;
         }
         if (!SiteUrls.normalize(task.siteUrl).equals(moodle.getClient().getSiteUrl())) {

@@ -10,7 +10,7 @@ Potřeba je **IntelliJ IDEA 2026.1 nebo novější** a pro úlohy v Javě nějak
 
 1. Stáhněte `moodle-vse-<verze>.zip` (soubor **nerozbalujte**).
 2. V IntelliJ: *Settings → Plugins → ⚙ → Install Plugin from Disk…* a vyberte ZIP. Potvrďte restart IDE.
-3. Vpravo otevřete okno **Moodle** → karta *Účet* → *Přihlásit se* (školní Microsoft účet).
+3. Vpravo otevřete okno **Moodle** → karta *Student* → *Přihlásit se* (školní Microsoft účet).
 4. Na kartě *Úlohy* vyberte úlohu a klikněte na *Otevřít v IntelliJ*.
 
 Novou verzi pluginu nainstalujete stejně, přes starou.
@@ -45,7 +45,7 @@ Samostatná „Community“ distribuce skončila verzí 2025.3, proto se použí
 
 ### Úlohy VPL
 
-Tool window **Moodle** má karty **Úlohy**, **Účet** a v projektu úlohy navíc kartu **Úloha**.
+Tool window **Moodle** má karty **Úlohy**, **Student** a v projektu úlohy navíc kartu **Úloha**.
 
 1. **Úlohy**: výběr kurzu a seznam jeho úloh VPL s termínem odevzdání (méně než 24 h zbývá → červeně).
    Ve výchozím stavu jsou vidět jen otevřené úlohy (dostupné a v termínu), přepínač *Jen otevřené* ukáže i ostatní.
@@ -66,7 +66,9 @@ Odevzdávají se všechny soubory ve složce úlohy kromě `.idea/`, `*.iml`, `o
 a `.moodle-vpl.json` (vazba projektu na úlohu, bez tajných údajů). Soubory nad 1 MB plugin odmítne.
 Na konec každého zdrojového souboru v odevzdané kopii plugin připojí komentář s e-mailem přihlášeného studenta
 (např. `// Odevzdano pres IntelliJ (Moodle VSE): jan.novak@vse.cz`, jen ASCII, protože server VPL překládá v US-ASCII; bez e-mailu uživatelské jméno). Lokální soubory
-se nemění, datové a binární soubory (`.txt`, `.csv`…) zůstanou bez komentáře a při stažení z Moodle se komentář odstraní. Když mezitím v Moodle
+se nemění, datové a binární soubory (`.txt`, `.csv`…) zůstanou bez komentáře a při stažení z Moodle se komentář odstraní.
+Na kartě **Student** lze vyplnit *Ostatní členové týmu* (oddělené čárkou, jen ASCII). Každý člen se připíše na další řádek
+(`// Clen tymu (Moodle VSE): xnovj01@vse.cz`). Hodnota se ukládá v nastavení IDE a platí pro všechny úlohy. Když mezitím v Moodle
 vzniklo novější odevzdání (např. z webového editoru), VPL se zeptá, jestli ho přepsat.
 
 ## Jak funguje přihlášení
@@ -127,7 +129,7 @@ cz.vse.moodle
 ├── auth/       SSO dialog, parser/ověření launch tokenu, ruční token, PasswordSafe
 ├── session/    MoodleSessionService (stav přihlášení, getClient()), topic MoodleSessionListener
 ├── settings/   nastavení (adresa webu, kurzy, složka úloh)
-├── ui/         tool window: karty Účet, Úlohy (VplAssignmentsPanel), Úloha (VplTaskPanel)
+├── ui/         tool window: karty Student (MoodleAccountPanel), Úlohy (VplAssignmentsPanel), Úloha (VplTaskPanel)
 └── vpl/        úlohy VPL
     ├── api/            VplWebSession (autologin + cookies), VplApi (load/save/evaluate/retrieve), VplMonitor (WebSocket)
     ├── VplService      sdílená webová session pro všechny projekty
