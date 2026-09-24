@@ -5,9 +5,11 @@ import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.options.ShowSettingsUtil;
 import com.intellij.openapi.project.Project;
 import com.intellij.ui.AnimatedIcon;
+import com.intellij.ui.DocumentAdapter;
 import com.intellij.ui.JBColor;
 import com.intellij.ui.components.ActionLink;
 import com.intellij.ui.components.JBLabel;
+import com.intellij.ui.components.JBTextField;
 import com.intellij.util.ui.JBFont;
 import com.intellij.util.ui.JBUI;
 import com.intellij.util.ui.UIUtil;
@@ -25,11 +27,14 @@ import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JPanel;
 import javax.swing.SwingConstants;
+import javax.swing.event.DocumentEvent;
+import javax.swing.text.AbstractDocument;
 import java.awt.BorderLayout;
 import java.awt.Component;
+import java.awt.Dimension;
 import java.awt.event.ActionListener;
 
-/** Content of the "Moodle" tool window: login button or the logged-in user's details. */
+/** "Student" tab of the Moodle tool window: login button, or the logged-in student and the other team members. */
 final class MoodleAccountPanel extends JPanel implements Disposable {
     private final Project project;
     private final JPanel body = new JPanel();
@@ -91,10 +96,39 @@ final class MoodleAccountPanel extends JPanel implements Disposable {
         append(field("Uživatelské jméno", user.username()));
         append(field("E-mail", user.email() != null ? user.email() : "nedostupný"));
         addGap();
+        addTeamField();
+        addGap();
         JButton logout = new JButton("Odhlásit");
         logout.addActionListener(e -> service.logout());
         append(logout);
         addSiteHint();
+    }
+
+    /** "Ostatní členové týmu": appended to submitted files below the logged-in student (see VplSubmitterStamp). */
+    private void addTeamField() {
+        JBLabel caption = new JBLabel("Ostatní členové týmu:");
+        caption.setForeground(UIUtil.getContextHelpForeground());
+        append(caption);
+
+        MoodleSettings settings = MoodleSettings.getInstance();
+        JBTextField team = new JBTextField(AsciiDocumentFilter.keepAscii(settings.getTeamMembersText()));
+        team.getEmptyText().setText("např. xnovj01@vse.cz, xdvop02@vse.cz");
+        ((AbstractDocument) team.getDocument()).setDocumentFilter(new AsciiDocumentFilter());
+        team.getDocument().addDocumentListener(new DocumentAdapter() {
+            @Override
+            protected void textChanged(@NotNull DocumentEvent e) {
+                settings.setTeamMembersText(team.getText());
+            }
+        });
+        team.setMaximumSize(new Dimension(Integer.MAX_VALUE, team.getPreferredSize().height));
+        append(team);
+
+        JBLabel hint = new JBLabel("<html>Oddělte čárkou. Jen znaky bez diakritiky (ASCII). "
+            + "Každý člen se připíše na konec odevzdaných souborů pod přihlášeného studenta.</html>");
+        hint.setAllowAutoWrapping(true);
+        hint.setComponentStyle(UIUtil.ComponentStyle.SMALL);
+        hint.setForeground(UIUtil.getContextHelpForeground());
+        append(hint);
     }
 
     private static @NotNull JComponent field(@NotNull String label, @NotNull String value) {

@@ -1,24 +1,42 @@
 <!-- Plugin Configuration File. Read more: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
 <idea-plugin>
     <id>cz.vse.moodle</id>
-    <name>Moodle VŠE</name>
-    <vendor>VŠE</vendor>
+    <name>Moodle VSE</name>
+    <vendor>VSE</vendor>
 
     <description><![CDATA[
+    Moodle VSE integration for students of the Prague University of Economics and Business.<br>
     Přihlášení do <a href="https://moodle.vse.cz">Moodle VŠE</a> přes SSO (stejně jako mobilní aplikace Moodle)
-    a zobrazení údajů přihlášeného uživatele v tool window <b>Moodle</b>.
+    a práce s úlohami <b>VPL</b> (Virtual Programming Lab): seznam otevřených úloh kurzu, otevření úlohy jako projektu,
+    odevzdání a vyhodnocení přímo z IDE. Vše v tool window <b>Moodle</b>.
     ]]></description>
 
     <depends>com.intellij.modules.platform</depends>
+    <!-- Embedded browser for SSO login. Part of the core in 2026.1 (alias), a separate bundled plugin since 2026.2;
+         without this dependency the plugin can't see JBCefApp there. -->
+    <depends>com.intellij.modules.jcef</depends>
 
     <extensions defaultExtensionNs="com.intellij">
         <toolWindow id="Moodle" anchor="right" icon="/icons/moodle.svg"
                     factoryClass="cz.vse.moodle.ui.MoodleToolWindowFactory"/>
         <applicationConfigurable id="cz.vse.moodle.settings" parentId="tools" displayName="Moodle VŠE"
                                  instance="cz.vse.moodle.settings.MoodleSettingsConfigurable"/>
+        <notificationGroup id="Moodle VŠE" displayType="BALLOON"/>
     </extensions>
 
     <applicationListeners>
         <listener class="cz.vse.moodle.session.MoodleStartupListener" topic="com.intellij.ide.AppLifecycleListener"/>
     </applicationListeners>
+
+    <actions>
+        <group id="cz.vse.moodle.vpl.Menu" text="Moodle VPL" popup="true">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+            <action id="cz.vse.moodle.vpl.Evaluate" class="cz.vse.moodle.vpl.VplTaskAction$Evaluate"
+                    text="Ověřit úlohu" description="Odevzdá soubory projektu do Moodle a nechá je vyhodnotit VPL"/>
+            <action id="cz.vse.moodle.vpl.Submit" class="cz.vse.moodle.vpl.VplTaskAction$Submit"
+                    text="Odevzdat úlohu" description="Odevzdá soubory projektu do Moodle bez vyhodnocení"/>
+            <action id="cz.vse.moodle.vpl.Download" class="cz.vse.moodle.vpl.VplTaskAction$Download"
+                    text="Stáhnout úlohu z Moodle" description="Přepíše místní soubory posledním odevzdáním z Moodle"/>
+        </group>
+    </actions>
 </idea-plugin>

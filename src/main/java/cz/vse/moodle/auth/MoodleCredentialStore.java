@@ -35,6 +35,17 @@ public final class MoodleCredentialStore {
     public static void clear(@NotNull String siteUrl) {
         PasswordSafe.getInstance().set(attributes(siteUrl, "token"), null);
         PasswordSafe.getInstance().set(attributes(siteUrl, "privatetoken"), null);
+        saveWebSession(siteUrl, null);
+    }
+
+    /** Serialized Moodle web session (cookies), see {@code VplWebSession#serialize()}. */
+    public static @Nullable String loadWebSession(@NotNull String siteUrl) {
+        return PasswordSafe.getInstance().getPassword(attributes(siteUrl, "websession"));
+    }
+
+    public static void saveWebSession(@NotNull String siteUrl, @Nullable String serialized) {
+        PasswordSafe.getInstance().set(attributes(siteUrl, "websession"),
+            serialized != null ? new Credentials("websession", serialized) : null);
     }
 
     private static @NotNull CredentialAttributes attributes(@NotNull String siteUrl, @NotNull String key) {
