@@ -4,7 +4,6 @@ import com.intellij.notification.NotificationGroupManager;
 import com.intellij.notification.NotificationType;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.application.ModalityState;
-import com.intellij.openapi.application.WriteIntentReadAction;
 import com.intellij.openapi.components.Service;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.fileEditor.FileDocumentManager;
@@ -140,7 +139,6 @@ public final class VplTaskService {
                 "Vyhodnocení se penalizuje", "Vyhodnotit", "Zrušit", Messages.getWarningIcon());
             if (answer != Messages.YES) return;
         }
-        saveAllDocuments();
         if (!busy.compareAndSet(false, true)) return;
         setStatus("Odevzdávám…", false);
 
@@ -151,6 +149,7 @@ public final class VplTaskService {
             @Override
             public void run(@NotNull ProgressIndicator indicator) {
                 try {
+                    saveAllDocuments();
                     VplApi api = VplService.getInstance().getApi();
                     indicator.setText("Odesílám soubory do Moodle…");
                     List<VplFile> files = VplProjectFiles.collect(root, task.requestedFiles);
@@ -252,7 +251,6 @@ public final class VplTaskService {
                 + "Neodevzdané změny v přepsaných souborech se ztratí.",
             "Stáhnout z Moodle", "Stáhnout", "Zrušit", Messages.getWarningIcon());
         if (answer != Messages.YES) return;
-        saveAllDocuments();
         if (!busy.compareAndSet(false, true)) return;
         setStatus("Stahuji z Moodle…", false);
 
@@ -260,6 +258,7 @@ public final class VplTaskService {
             @Override
             public void run(@NotNull ProgressIndicator indicator) {
                 try {
+                    saveAllDocuments();
                     VplSubmission submission = VplService.getInstance().getApi().load(task.cmid);
                     VplProjectFiles.writeFiles(root, VplSubmitterStamp.strip(submission.files()));
                     task.version = submission.version();
@@ -318,9 +317,13 @@ public final class VplTaskService {
         return confirmed.get();
     }
 
-    /** Button listeners run on the EDT without the write-intent lock that saving documents needs. */
+    /**
+     * Called from background tasks. Saving documents needs the write-intent lock, which {@code Application.invokeAndWait}
+     * provides (button listeners run on the EDT without it, and {@code WriteIntentReadAction} is experimental API).
+     */
     private static void saveAllDocuments() {
-        WriteIntentReadAction.run((Runnable) () -> FileDocumentManager.getInstance().saveAllDocuments());
+        ApplicationManager.getApplication().invokeAndWait(
+            () -> FileDocumentManager.getInstance().saveAllDocuments(), ModalityState.defaultModalityState());
     }
 
     private @Nullable Path projectRoot() {
