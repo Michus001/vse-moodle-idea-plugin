@@ -73,13 +73,4 @@ Nové funkce získají přihlášeného klienta přes `MoodleSessionService.getI
 v `Task.Backgroundable`. Změny přihlášení sledují přes `MoodleSessionListener.TOPIC`.
 
 ## Známá omezení
-
-- Úprava v kroku 3 závisí na interním chování Moodle (`tool_mobile_launch` cookie + `justloggedin`) a na tom,
-  že `auth_oidc` po přihlášení respektuje `wantsurl`. Ověřeno ručně v prohlížeči na moodle.vse.cz (9/2026).
-  Pokud VŠE změní `typeoflogin` na 2 nebo 3, plugin bude dál fungovat standardní cestou.
-- Kdo je v Moodle administrátor, nedostane `privateToken` (Moodle ho adminům nevydává). Plugin ho zatím nepotřebuje.
-- *Odhlásit* token jen smaže z IDE, na serveru zůstává platný. Zneplatnit ho lze v Moodle v *Bezpečnostních klíčích*.
-- E-mail se zobrazí, jen pokud ho služba mobilní aplikace smí přes `core_user_get_users_by_field` vrátit.
-  Jinak se ukáže „nedostupný“.
-- Token se posílá v těle POST požadavku, ne v query stringu, aby se neobjevoval v přístupových logech.
 - Texty UI jsou zatím česky natvrdo (bez resource bundle).
