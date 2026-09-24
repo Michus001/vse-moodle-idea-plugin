@@ -145,20 +145,4 @@ Nové funkce získají přihlášeného klienta přes `MoodleSessionService.getI
 v `Task.Backgroundable`. Změny přihlášení sledují přes `MoodleSessionListener.TOPIC`.
 
 ## Známá omezení
-
-- Úprava v kroku 3 závisí na interním chování Moodle (`tool_mobile_launch` cookie + `justloggedin`) a na tom,
-  že `auth_oidc` po přihlášení respektuje `wantsurl`. Ověřeno ručně v prohlížeči na moodle.vse.cz (9/2026).
-  Pokud VŠE změní `typeoflogin` na 2 nebo 3, plugin bude dál fungovat standardní cestou.
-- Kdo je v Moodle administrátor, nedostane `privateToken` (Moodle ho adminům nevydává), a nemůže proto používat úlohy VPL.
-  Totéž platí po přihlášení ručně vloženým tokenem: úlohy VPL vyžadují přihlášení přes SSO.
-- Práce s VPL používá interní endpoint webového editoru (`edit.json.php`), ne veřejné API. Pokud ho budoucí verze VPL změní,
-  bude potřeba plugin upravit. Pokud by VŠE zapnula službu `mod_vpl_edit`, lze přejít na oficiální `mod_vpl_*` funkce.
-- Pokud by Moodle omezoval počet souběžných přihlášení (`limitconcurrentlogins`), webová session pluginu by mohla odhlásit
-  prohlížeč. Na moodle.vse.cz to ověřeno není.
-- Úlohy chráněné heslem nebo omezené na IP adresy plugin neumí odemknout. VPL vrátí chybu, kterou plugin zobrazí.
-- Přihlášený průchod (autologin, odevzdání, vyhodnocení) zatím nebyl vyzkoušen se skutečným studentským účtem v kurzu 23982.
-- *Odhlásit* token jen smaže z IDE, na serveru zůstává platný. Zneplatnit ho lze v Moodle v *Bezpečnostních klíčích*.
-- E-mail se zobrazí, jen pokud ho služba mobilní aplikace smí přes `core_user_get_users_by_field` vrátit.
-  Jinak se ukáže „nedostupný“.
-- Token se posílá v těle POST požadavku, ne v query stringu, aby se neobjevoval v přístupových logech.
 - Texty UI jsou zatím česky natvrdo (bez resource bundle).
