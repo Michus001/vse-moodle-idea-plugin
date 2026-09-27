@@ -21,6 +21,21 @@ public class TrainingTasksTest {
     }
 
     @Test
+    public void recognizesTrainingSectionOrSubsection() {
+        CourseModule inSection = module("Trénink", "Kolekce");
+        assertTrue(TrainingTasks.isTraining(inSection, "Trénink"));
+        assertEquals("Kolekce", TrainingTasks.topic(inSection, "Trénink"));
+
+        // "Trénink" created as a subsection of a regular section: training, without a topic.
+        CourseModule inSubsection = module("Týden 1", "Trénink");
+        assertTrue(TrainingTasks.isTraining(inSubsection, "Trénink"));
+        assertNull(TrainingTasks.topic(inSubsection, "Trénink"));
+
+        assertFalse(TrainingTasks.isTraining(module("Týden 1", "Cvičení"), "Trénink"));
+        assertFalse(TrainingTasks.isTraining(module("Týden 1", null), "Trénink"));
+    }
+
+    @Test
     public void readsDifficultyFromLeadingStars() {
         assertEquals(2, TrainingTasks.difficulty("★★ Seřazení seznamu"));
         assertEquals(3, TrainingTasks.difficulty("*** Hvězdičky z klávesnice"));
@@ -67,6 +82,10 @@ public class TrainingTasksTest {
 
     private static VplResult result(String grade, String evaluation) {
         return new VplResult("", evaluation, "", grade, 1, 0, "0");
+    }
+
+    private static CourseModule module(String section, String subsection) {
+        return new CourseModule(1, "Úloha", "vpl", null, section, subsection, true, null, null, null, null);
     }
 
     private static CourseModule task(long id, String name) {

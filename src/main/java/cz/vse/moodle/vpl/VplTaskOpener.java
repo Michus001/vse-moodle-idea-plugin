@@ -60,10 +60,10 @@ public final class VplTaskOpener {
                     VplTaskMetadata existing = VplTaskMetadata.read(dir);
                     if (existing != null) {
                         // Already downloaded: open it as it is, the student may have local changes.
-                        if (existing.training != training || !Objects.equals(existing.topic, activity.subsectionName())) {
+                        if (existing.training != training || !Objects.equals(existing.topic, TrainingTasks.topic(activity))) {
                             // Downloaded before the task was moved to (or out of) the training section.
                             existing.training = training;
-                            existing.topic = activity.subsectionName();
+                            existing.topic = TrainingTasks.topic(activity);
                             existing.write(dir);
                         }
                         if (training) TrainingProgress.getInstance().markStarted(existing.siteUrl, existing.cmid);
@@ -90,7 +90,7 @@ public final class VplTaskOpener {
                     metadata.version = submission.version();
                     metadata.requestedFiles = requested.stream().map(VplFile::name).toList();
                     metadata.training = training;
-                    metadata.topic = activity.subsectionName();
+                    metadata.topic = TrainingTasks.topic(activity);
                     metadata.write(dir);
                     if (training) {
                         if (submission.result() != null) TrainingProgress.getInstance().record(metadata.siteUrl, metadata.cmid, submission.result());

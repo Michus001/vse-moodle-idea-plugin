@@ -28,9 +28,26 @@ public final class TrainingTasks {
     private TrainingTasks() {
     }
 
-    /** True for activities in the configured training section or any of its subsections. */
+    /**
+     * True for activities in the configured training section or any of its subsections, and also for activities in
+     * a subsection of that name (a teacher may create "Trénink" as a subsection of another section).
+     */
     public static boolean isTraining(@NotNull CourseModule module) {
-        return isTrainingSection(module.sectionName(), MoodleSettings.getInstance().getTrainingSection());
+        return isTraining(module, MoodleSettings.getInstance().getTrainingSection());
+    }
+
+    public static boolean isTraining(@NotNull CourseModule module, @NotNull String trainingSection) {
+        return isTrainingSection(module.sectionName(), trainingSection)
+            || (module.subsectionName() != null && isTrainingSection(module.subsectionName(), trainingSection));
+    }
+
+    /** Topic of a training activity: the subsection inside the training section, null directly in it. */
+    public static @Nullable String topic(@NotNull CourseModule module) {
+        return topic(module, MoodleSettings.getInstance().getTrainingSection());
+    }
+
+    public static @Nullable String topic(@NotNull CourseModule module, @NotNull String trainingSection) {
+        return isTrainingSection(module.sectionName(), trainingSection) ? module.subsectionName() : null;
     }
 
     public static boolean isTrainingSection(@NotNull String sectionName, @NotNull String trainingSection) {

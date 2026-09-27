@@ -47,6 +47,7 @@ import java.awt.event.MouseEvent;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -80,6 +81,8 @@ final class TrainingPanel extends JPanel implements Disposable {
     private final Set<String> collapsed = new HashSet<>();
     private final List<Integer> difficulties = new ArrayList<>();
     private List<CourseModule> tasks = List.of();
+    /** Sections (and subsections) of all VPL activities of the course, for the "no training section" hint. */
+    private List<String> otherSections = List.of();
     private @Nullable String loadError;
     /** Shown instead of the summary until the course is loaded ("Načítám úlohy…", "Přihlaste se…"). */
     private @Nullable String pendingMessage;
@@ -105,6 +108,12 @@ final class TrainingPanel extends JPanel implements Disposable {
                     if (TrainingTasks.isTraining(module)) training.add(module);
                 }
                 tasks = training;
+                // Named in the status when no training section is found, to spot a differently named one.
+                Set<String> sections = new LinkedHashSet<>();
+                for (CourseModule module : result.modules()) {
+                    sections.add(module.subsectionName() != null ? module.sectionName() + " / " + module.subsectionName() : module.sectionName());
+                }
+                otherSections = new ArrayList<>(sections);
                 loadError = result.error();
                 pendingMessage = null;
                 fillDifficulties();
@@ -231,7 +240,7 @@ final class TrainingPanel extends JPanel implements Disposable {
             Map<String, List<CourseModule>> topics = new LinkedHashMap<>();
             List<Object> order = new ArrayList<>();
             for (CourseModule task : tasks) {
-                String topic = task.subsectionName();
+                String topic = TrainingTasks.topic(task);
                 if (topic == null) {
                     order.add(task);
                 }
@@ -289,7 +298,8 @@ final class TrainingPanel extends JPanel implements Disposable {
         }
         if (tasks.isEmpty()) {
             showStatus("V kurzu není sekce „" + MoodleSettings.getInstance().getTrainingSection()
-                + "“ s úlohami VPL. Název sekce lze změnit v Settings → Tools → Moodle VŠE.", false);
+                + "“ s úlohami VPL. Název sekce lze změnit v Settings → Tools → Moodle VŠE."
+                + (otherSections.isEmpty() ? "" : " Úlohy VPL jsou v sekcích: " + String.join(", ", otherSections) + "."), false);
             return;
         }
         long solved = tasks.stream().filter(task -> status(task) == TrainingStatus.SOLVED).count();
@@ -329,7 +339,7 @@ final class TrainingPanel extends JPanel implements Disposable {
     private @Nullable String selectedTopic() {
         Object selected = selectedObject();
         if (selected instanceof Topic topic) return topic.name();
-        if (selected instanceof CourseModule task) return task.subsectionName();
+        if (selected instanceof CourseModule task) return TrainingTasks.topic(task);
         return null;
     }
 
@@ -374,7 +384,7 @@ final class TrainingPanel extends JPanel implements Disposable {
         CourseModule next = null;
         String note = null;
         if (topic != null) {
-            List<CourseModule> topicTasks = tasks.stream().filter(task -> topic.equals(task.subsectionName())).toList();
+            List<CourseModule> topicTasks = tasks.stream().filter(task -> topic.equals(TrainingTasks.topic(task))).toList();
             next = TrainingTasks.nextTask(topicTasks, this::status, currentId);
             if (next == null) note = "Téma „" + topic + "“ máte vyřešené, pokračujte dalším tématem.";
         }
