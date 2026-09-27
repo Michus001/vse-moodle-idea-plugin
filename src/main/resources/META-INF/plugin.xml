@@ -8,8 +8,30 @@
     Moodle VSE integration for students of the Prague University of Economics and Business.<br>
     Přihlášení do <a href="https://moodle.vse.cz">Moodle VŠE</a> přes SSO (stejně jako mobilní aplikace Moodle)
     a práce s úlohami <b>VPL</b> (Virtual Programming Lab): seznam otevřených úloh kurzu, otevření úlohy jako projektu,
-    odevzdání a vyhodnocení přímo z IDE. Vše v tool window <b>Moodle</b>.
+    odevzdání a vyhodnocení přímo z IDE, tréninkové úlohy s postupem po tématech. Vše v tool window <b>Moodle</b>.
     ]]></description>
+
+    <!-- Shown as "What's New" in Settings | Plugins. Newest version first. -->
+    <change-notes><![CDATA[
+    <h3>0.2.0</h3>
+    <ul>
+      <li>Nová karta <b>Trénink</b>: tréninkové úlohy ze sekce kurzu „Trénink“ ve stromu podle témat (podsekce Moodle),
+          hledání, filtr obtížnosti (★ v názvu úlohy) a <i>Skrýt vyřešené</i>.</li>
+      <li>U témat postup (např. <i>Kolekce 4/9</i>), u úloh stav nová / rozpracovaná / vyřešená a nejlepší známka.
+          Stav se ukládá lokálně po každém <i>Ověřit</i>.</li>
+      <li>Tlačítko <i>Další úloha k procvičení</i> otevře nejlehčí nevyřešenou úlohu vybraného tématu.</li>
+      <li>Karta <b>Úlohy</b> ukazuje jen úlohy ze cvičení, karta <b>Úloha</b> označí tréninkovou úlohu štítkem <i>Trénink</i>.</li>
+      <li>Nastavení: název sekce s tréninkovými úlohami (výchozí „Trénink“).</li>
+    </ul>
+    <h3>0.1.4</h3>
+    <ul><li>Spolehlivější ukládání souborů před odevzdáním.</li></ul>
+    <h3>0.1.3</h3>
+    <ul><li>Podpora IntelliJ IDEA 2026.2 (přihlášení přes vestavěný prohlížeč).</li></ul>
+    <h3>0.1.2</h3>
+    <ul><li>Karta <b>Student</b> s členy týmu, kteří se připíší k odevzdaným souborům.</li></ul>
+    <h3>0.1.1</h3>
+    <ul><li>Podpis odevzdávajícího v souborech jen v ASCII (server VPL překládá v US-ASCII).</li></ul>
+    ]]></change-notes>
 
     <depends>com.intellij.modules.platform</depends>
     <!-- Embedded browser for SSO login. Part of the core in 2026.1 (alias), a separate bundled plugin since 2026.2;

@@ -26,6 +26,7 @@ import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JPanel;
 import java.awt.BorderLayout;
+import java.awt.Color;
 import java.awt.Component;
 import java.awt.FlowLayout;
 import java.awt.event.ActionListener;
@@ -34,6 +35,7 @@ import java.time.Instant;
 
 /** "Úloha" tab of a project created from a VPL activity: submit, evaluate and see the result. */
 final class VplTaskPanel extends JPanel implements Disposable {
+    private static final JBColor TRAINING_BACKGROUND = new JBColor(new Color(0xDFF0DF), new Color(0x2E4A33));
     private final VplTaskService service;
     private final JPanel header = new JPanel();
     private final JBLabel status = new JBLabel();
@@ -99,6 +101,9 @@ final class VplTaskPanel extends JPanel implements Disposable {
         JBLabel name = new JBLabel(task.name != null ? task.name : "Úloha VPL");
         name.setFont(JBFont.h3().asBold());
         addLeft(header, name);
+        if (task.training) {
+            addLeft(header, trainingBadge(task));
+        }
         if (task.courseName != null) {
             JBLabel course = new JBLabel(task.courseName);
             course.setForeground(UIUtil.getContextHelpForeground());
@@ -132,6 +137,20 @@ final class VplTaskPanel extends JPanel implements Disposable {
         }
         header.revalidate();
         header.repaint();
+    }
+
+    /** "Trénink · Kolekce": a practice task from the course's training section. */
+    private static @NotNull JComponent trainingBadge(@NotNull VplTaskMetadata task) {
+        JBLabel badge = new JBLabel("Trénink" + (task.topic != null && !task.topic.isBlank() ? " · " + task.topic : ""));
+        badge.setFont(JBFont.small().asBold());
+        badge.setOpaque(true);
+        badge.setBackground(TRAINING_BACKGROUND);
+        badge.setBorder(JBUI.Borders.empty(1, 6));
+        badge.setToolTipText("Tréninková úloha na procvičení (karta Trénink).");
+        JPanel row = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, JBUI.scale(2)));
+        row.setOpaque(false);
+        row.add(badge);
+        return row;
     }
 
     /** VPL's time left is more accurate (it includes per-student overrides) than the date stored at download. */

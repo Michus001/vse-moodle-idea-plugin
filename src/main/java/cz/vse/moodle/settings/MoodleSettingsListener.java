@@ -6,6 +6,6 @@ import com.intellij.util.messages.Topic;
 public interface MoodleSettingsListener {
     Topic<MoodleSettingsListener> TOPIC = Topic.create("Moodle VŠE settings", MoodleSettingsListener.class);
 
-    /** The list of courses with VPL assignments changed. */
+    /** The list of courses with VPL assignments or the name of the training section changed. */
     void coursesChanged();
 }

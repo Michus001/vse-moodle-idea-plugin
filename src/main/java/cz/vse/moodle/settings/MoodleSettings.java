@@ -20,6 +20,8 @@ public final class MoodleSettings implements PersistentStateComponent<MoodleSett
     public static final String DEFAULT_SITE_URL = "https://moodle.vse.cz";
     /** Course whose VPL assignments are listed by default. */
     public static final String DEFAULT_COURSE_IDS = "23982";
+    /** Name of the course section with practice (training) assignments. */
+    public static final String DEFAULT_TRAINING_SECTION = "Trénink";
 
     public static final class SettingsState {
         public String siteUrl = DEFAULT_SITE_URL;
@@ -29,6 +31,8 @@ public final class MoodleSettings implements PersistentStateComponent<MoodleSett
         public String projectsDir;
         /** Other team members as typed in the Student tab (ASCII only), e.g. "xnovj01@vse.cz, xdvop02@vse.cz". */
         public String teamMembers = "";
+        /** Section whose VPL activities (including its subsections) are shown in the Trénink tab, not in Úlohy. */
+        public String trainingSection = DEFAULT_TRAINING_SECTION;
     }
 
     private SettingsState state = new SettingsState();
@@ -68,6 +72,15 @@ public final class MoodleSettings implements PersistentStateComponent<MoodleSett
 
     public void setProjectsDir(@Nullable String dir) {
         state.projectsDir = dir == null || dir.isBlank() || Path.of(dir).equals(defaultProjectsDir()) ? null : dir.trim();
+    }
+
+    public @NotNull String getTrainingSection() {
+        String section = state.trainingSection;
+        return section == null || section.isBlank() ? DEFAULT_TRAINING_SECTION : section.trim();
+    }
+
+    public void setTrainingSection(@NotNull String section) {
+        state.trainingSection = section.isBlank() ? DEFAULT_TRAINING_SECTION : section.trim();
     }
 
     public @NotNull String getTeamMembersText() {

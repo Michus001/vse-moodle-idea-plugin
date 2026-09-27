@@ -41,16 +41,18 @@ Samostatná „Community“ distribuce skončila verzí 2025.3, proto se použí
 - Když vestavěný prohlížeč (JCEF) není k dispozici, nebo přes odkaz *Vložit token ručně…*, lze vložit token z Moodle
   (*Předvolby → Bezpečnostní klíče*, služba *Moodle mobile web service*).
 - *Settings → Tools → Moodle VŠE* obsahuje adresu Moodle (výchozí `https://moodle.vse.cz`), seznam kurzů s úlohami VPL
-  (výchozí `23982`; stačí vložit i adresu kurzu) a složku pro projekty úloh (výchozí `~/MoodleVSE`).
+  (výchozí `23982`; stačí vložit i adresu kurzu), název sekce s tréninkovými úlohami (výchozí `Trénink`)
+  a složku pro projekty úloh (výchozí `~/MoodleVSE`).
 - Po startu IDE se uložený token automaticky ověří (`core_webservice_get_site_info`). Když ho Moodle odmítne
   (`invalidtoken`, `accessexception`), token se smaže a plugin je nepřihlášený. Při výpadku sítě token zůstane
   a v tool window je tlačítko *Zkusit znovu*.
 
 ### Úlohy VPL
 
-Tool window **Moodle** má karty **Úlohy**, **Student** a v projektu úlohy navíc kartu **Úloha**.
+Tool window **Moodle** má karty **Úlohy**, **Trénink**, **Student** a v projektu úlohy navíc kartu **Úloha**.
 
-1. **Úlohy**: výběr kurzu a seznam jeho úloh VPL s termínem odevzdání (méně než 24 h zbývá → červeně).
+1. **Úlohy**: výběr kurzu a seznam jeho úloh VPL ze cvičení s termínem odevzdání (méně než 24 h zbývá → červeně).
+   Tréninkové úlohy (viz níže) tu nejsou.
    Ve výchozím stavu jsou vidět jen otevřené úlohy (dostupné a v termínu), přepínač *Jen otevřené* ukáže i ostatní.
 2. **Otevřít v IntelliJ** (nebo dvojklik) stáhne zadané soubory a poslední odevzdání do
    `~/MoodleVSE/<kurz>/<úloha>/` a otevře složku jako projekt. U úloh v Javě se vytvoří i `.idea/` s modulem
@@ -61,6 +63,7 @@ Tool window **Moodle** má karty **Úlohy**, **Student** a v projektu úlohy nav
      výsledek (překlad, hodnocení, navrhovaná známka) na kartě Úloha. VPL vždy vyhodnocuje poslední odevzdání,
      proto ověření vždy znamená i odevzdání (stejně jako tlačítko *Vyhodnotit* ve webovém editoru VPL). Pokud další
      vyhodnocení snižuje známku (`reductionbyevaluation`), plugin se předem zeptá.
+   - U tréninkové úlohy je pod názvem štítek *Trénink* (s tématem).
    - **Odevzdat**: odevzdá soubory bez vyhodnocení.
    - **Stáhnout z Moodle**: přepíše místní soubory posledním odevzdáním.
    - *Zadání v Moodle*: otevře stránku úlohy v prohlížeči.
@@ -73,6 +76,30 @@ se nemění, datové a binární soubory (`.txt`, `.csv`…) zůstanou bez komen
 Na kartě **Student** lze vyplnit *Ostatní členové týmu* (oddělené čárkou, jen ASCII). Každý člen se připíše na další řádek
 (`// Clen tymu (Moodle VSE): xnovj01@vse.cz`). Hodnota se ukládá v nastavení IDE a platí pro všechny úlohy. Když mezitím v Moodle
 vzniklo novější odevzdání (např. z webového editoru), VPL se zeptá, jestli ho přepsat.
+
+### Trénink
+
+Tréninkové úlohy na domácí procvičování jsou ve stejném kurzu jako úlohy ze cvičení, v sekci **Trénink**
+(název jde změnit v nastavení). Témata jsou podsekce (Moodle 4.5, `mod_subsection`), úlohy můžou být i přímo v sekci.
+
+Karta **Trénink** ukazuje strom *téma → úlohy* s hledáním, filtrem obtížnosti a přepínačem *Skrýt vyřešené*.
+U tématu je postup (např. *Kolekce 4/9*), u úlohy stav (nová / rozpracovaná / vyřešená) a nejlepší dosažená známka.
+Stav se ukládá lokálně (`moodle-vse-training.xml` v nastavení IDE) pokaždé, když plugin dostane výsledek VPL tréninkové
+úlohy: po *Ověřit*, po otevření úlohy a po *Stáhnout z Moodle*. Karta proto nevolá VPL pro každou úlohu zvlášť; úlohy
+ověřené jen ve webovém editoru se ukážou až po otevření v IntelliJ. Úloha je vyřešená, když navrhovaná známka dosáhne
+maxima (u úloh bez hodnocení, když projdou všechny testy podle souhrnu `N tests run/ N tests passed`).
+
+*Další úloha k procvičení* otevře nejlehčí nevyřešenou úlohu vybraného tématu (bez výběru ze všech témat).
+Otevírání a ověřování funguje stejně jako u ostatních úloh.
+
+Doporučené nastavení tréninkových úloh VPL v Moodle:
+
+- bez termínu odevzdání,
+- `reductionbyevaluation = 0` (neomezené ověřování bez srážek),
+- hodnocení s maximem (např. 10 bodů) a vahou 0 v hodnocení kurzu, aby VPL vracel navrhovanou známku; úplně vypnuté
+  hodnocení funguje taky, ale „vyřešeno“ se pak pozná jen ze souhrnu testů,
+- společné testovací skripty a prostředí přes *Založeno na* (based on),
+- obtížnost jako hvězdičky na začátku názvu, např. `★★ Seřazení seznamu` (lze psát i `**`).
 
 ## Jak funguje přihlášení
 
@@ -105,8 +132,11 @@ VPL má vlastní web service (`mod_vpl_info/open/save/evaluate/get_result`), ta 
 ne do `moodle_mobile_app`. Token ze SSO ji tedy volat nemůže a služba `mod_vpl_edit` musí být zapnutá administrátorem.
 Plugin proto používá endpoint webového editoru VPL `mod/vpl/forms/edit.json.php`, kterému stačí přihlášená webová session:
 
-1. Seznam úloh: `core_course_get_contents` (`modname=vpl`, `excludecontents`) přes mobilní token. U modulů je pole
-   `dates` (začátek a termín) a `uservisible`.
+1. Seznam úloh: `core_course_get_contents` (`excludecontents`) přes mobilní token. U modulů je pole
+   `dates` (začátek a termín) a `uservisible`. Filtr `modname=vpl` se neposílá, protože by vyřadil i moduly
+   `subsection`: podsekce je v odpovědi samostatná sekce (`component = mod_subsection`, `itemid` = instance) a v nadřazené
+   sekci ji zastupuje modul `modname = subsection` se stejným `instance`. Úlohy z podsekce se tak přiřadí k nadřazené
+   sekci (podle ní se pozná trénink) a podsekce je jejich téma.
 2. Webová session: `tool_mobile_get_autologin_key` (s `privateToken` ze SSO přihlášení, User-Agent obsahuje
    `MoodleMobile`, jinak Moodle klíč nevydá) → `admin/tool/mobile/autologin.php?userid=…&key=…` → cookie `MoodleSession`.
    Stejně oficiální aplikace otevírá stránky v prohlížeči. Moodle vydá klíč jednou za 6 minut, proto se session
@@ -131,8 +161,10 @@ cz.vse.moodle
 │   └── MoodleException     chyba hlášená Moodlem (errorcode, isInvalidToken())
 ├── auth/       SSO dialog, parser/ověření launch tokenu, ruční token, PasswordSafe
 ├── session/    MoodleSessionService (stav přihlášení, getClient()), topic MoodleSessionListener
-├── settings/   nastavení (adresa webu, kurzy, složka úloh)
-├── ui/         tool window: karty Student (MoodleAccountPanel), Úlohy (VplAssignmentsPanel), Úloha (VplTaskPanel)
+├── settings/   nastavení (adresa webu, kurzy, sekce tréninku, složka úloh)
+├── training/   tréninkové úlohy: TrainingTasks (sekce, obtížnost, skóre, další úloha), TrainingProgress (lokální stav)
+├── ui/         tool window: karty Student (MoodleAccountPanel), Úlohy (VplAssignmentsPanel), Trénink (TrainingPanel),
+│               Úloha (VplTaskPanel); výběr kurzu sdílí CourseSelector
 └── vpl/        úlohy VPL
     ├── api/            VplWebSession (autologin + cookies), VplApi (load/save/evaluate/retrieve), VplMonitor (WebSocket)
     ├── VplService      sdílená webová session pro všechny projekty

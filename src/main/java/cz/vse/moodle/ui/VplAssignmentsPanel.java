@@ -3,10 +3,8 @@ package cz.vse.moodle.ui;
 import com.intellij.icons.AllIcons;
 import com.intellij.ide.BrowserUtil;
 import com.intellij.openapi.Disposable;
-import com.intellij.openapi.application.ApplicationManager;
-import com.intellij.openapi.application.ModalityState;
 import com.intellij.openapi.project.Project;
-import com.intellij.openapi.ui.ComboBox;
+import com.intellij.openapi.util.Disposer;
 import com.intellij.ui.ColoredListCellRenderer;
 import com.intellij.ui.DoubleClickListener;
 import com.intellij.ui.JBColor;
@@ -18,13 +16,8 @@ import com.intellij.ui.components.JBScrollPane;
 import com.intellij.util.ui.JBUI;
 import com.intellij.util.ui.UIUtil;
 import cz.vse.moodle.api.CourseModule;
-import cz.vse.moodle.api.MoodleClient;
-import cz.vse.moodle.api.MoodleException;
-import cz.vse.moodle.session.MoodleSessionListener;
-import cz.vse.moodle.session.MoodleSessionService;
-import cz.vse.moodle.session.MoodleSessionState;
 import cz.vse.moodle.settings.MoodleSettings;
-import cz.vse.moodle.settings.MoodleSettingsListener;
+import cz.vse.moodle.training.TrainingTasks;
 import cz.vse.moodle.vpl.VplTaskOpener;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -38,57 +31,55 @@ import javax.swing.ListSelectionModel;
 import java.awt.BorderLayout;
 import java.awt.FlowLayout;
 import java.awt.event.MouseEvent;
-import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
 
-/** "Úlohy" tab: VPL activities of the configured courses. */
+/** "Úlohy" tab: VPL activities of the configured courses, except the training ones (see {@link TrainingPanel}). */
 final class VplAssignmentsPanel extends JPanel implements Disposable {
-    private record CourseItem(long id, @Nullable String name) {
-        @Override
-        public String toString() {
-            return name != null ? name : "Kurz " + id;
-        }
-    }
-
     private final Project project;
-    private final ComboBox<CourseItem> courseCombo = new ComboBox<>();
+    private final CourseSelector courses;
     private final JBCheckBox onlyOpen = new JBCheckBox("Jen otevřené", true);
     private final DefaultListModel<CourseModule> model = new DefaultListModel<>();
     private final JBList<CourseModule> list = new JBList<>(model);
     private final JBLabel status = new JBLabel();
     private final JButton openButton = new JButton("Otevřít v IntelliJ");
     private final JButton browserButton = new JButton("Zobrazit v Moodle");
-    private final Map<Long, String> courseNames = new ConcurrentHashMap<>();
-    private final AtomicLong generation = new AtomicLong();
     private List<CourseModule> loaded = List.of();
+    private int trainingCount;
     private @Nullable String loadError;
-    private boolean updatingCombo;
 
     VplAssignmentsPanel(@NotNull Project project) {
         super(new BorderLayout());
         this.project = project;
 
-        JButton refresh = new JButton(AllIcons.Actions.Refresh);
-        refresh.setToolTipText("Načíst znovu");
-        refresh.addActionListener(e -> reload());
-        courseCombo.addActionListener(e -> {
-            if (!updatingCombo) reload();
-        });
         onlyOpen.addActionListener(e -> showModules());
-        JPanel top = new JPanel(new BorderLayout(JBUI.scale(6), 0));
-        top.add(courseCombo, BorderLayout.CENTER);
-        JPanel topRight = new JPanel(new FlowLayout(FlowLayout.RIGHT, JBUI.scale(4), 0));
-        topRight.add(onlyOpen);
-        topRight.add(refresh);
-        top.add(topRight, BorderLayout.EAST);
-        top.setBorder(JBUI.Borders.empty(8, 8, 4, 8));
-        add(top, BorderLayout.NORTH);
+        courses = new CourseSelector(project, new CourseSelector.Listener() {
+            @Override
+            public void started(@NotNull String message) {
+                loaded = List.of();
+                trainingCount = 0;
+                loadError = null;
+                model.clear();
+                updateButtons();
+                showStatus(message, false);
+            }
+
+            @Override
+            public void loaded(@NotNull CourseSelector.Loaded result) {
+                List<CourseModule> assignments = new ArrayList<>();
+                for (CourseModule module : result.modules()) {
+                    if (!TrainingTasks.isTraining(module)) assignments.add(module);
+                }
+                loaded = assignments;
+                trainingCount = result.modules().size() - assignments.size();
+                loadError = result.error();
+                showModules();
+            }
+        }, onlyOpen);
+        Disposer.register(this, courses);
+        add(courses.getComponent(), BorderLayout.NORTH);
 
         list.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         list.setCellRenderer(new ModuleRenderer());
@@ -121,103 +112,7 @@ final class VplAssignmentsPanel extends JPanel implements Disposable {
         bottom.setBorder(JBUI.Borders.empty(4, 8, 8, 8));
         add(bottom, BorderLayout.SOUTH);
 
-        var bus = ApplicationManager.getApplication().getMessageBus().connect(this);
-        bus.subscribe(MoodleSessionListener.TOPIC, (MoodleSessionListener) state -> {
-            if (state.status() == MoodleSessionState.Status.LOGGED_IN || state.status() == MoodleSessionState.Status.LOGGED_OUT) {
-                reload();
-            }
-        });
-        bus.subscribe(MoodleSettingsListener.TOPIC, (MoodleSettingsListener) this::fillCourses);
-
-        fillCourses();
-    }
-
-    private void fillCourses() {
-        updatingCombo = true;
-        try {
-            CourseItem selected = (CourseItem) courseCombo.getSelectedItem();
-            courseCombo.removeAllItems();
-            for (long id : MoodleSettings.getInstance().getCourseIds()) {
-                courseCombo.addItem(new CourseItem(id, courseNames.get(id)));
-            }
-            for (int i = 0; i < courseCombo.getItemCount(); i++) {
-                if (selected != null && courseCombo.getItemAt(i).id() == selected.id()) courseCombo.setSelectedIndex(i);
-            }
-            courseCombo.setVisible(courseCombo.getItemCount() > 0);
-        }
-        finally {
-            updatingCombo = false;
-        }
-        reload();
-    }
-
-    private void reload() {
-        long gen = generation.incrementAndGet();
-        CourseItem course = (CourseItem) courseCombo.getSelectedItem();
-        MoodleClient client = MoodleSessionService.getInstance().getClient();
-        loaded = List.of();
-        loadError = null;
-        model.clear();
-        updateButtons();
-        if (course == null) {
-            showStatus("Nastavte kurzy v Settings → Tools → Moodle VŠE.", false);
-            return;
-        }
-        if (client == null) {
-            showStatus("Pro zobrazení úloh se přihlaste na kartě Student.", false);
-            return;
-        }
-        showStatus("Načítám úlohy…", false);
-        ApplicationManager.getApplication().executeOnPooledThread(() -> {
-            List<CourseModule> modules;
-            String name;
-            String error = null;
-            try {
-                name = courseNames.containsKey(course.id()) ? courseNames.get(course.id()) : client.getCourseName(course.id());
-                modules = client.getCourseModules(course.id(), "vpl");
-            }
-            catch (MoodleException e) {
-                name = null;
-                modules = List.of();
-                error = e.getErrorCode().equals("errorcoursecontextnotvalid") || e.getErrorCode().equals("requireloginerror")
-                    ? "K tomuto kurzu nemáte přístup (nejste do něj zapsáni?)." : "Moodle vrátil chybu: " + e.getMessage();
-            }
-            catch (IOException e) {
-                name = null;
-                modules = List.of();
-                error = "Nelze načíst úlohy: " + (e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName());
-            }
-            String courseName = name;
-            List<CourseModule> result = modules;
-            String failure = error;
-            ApplicationManager.getApplication().invokeLater(() -> {
-                if (generation.get() != gen) return;
-                if (courseName != null && !courseName.equals(courseNames.get(course.id()))) {
-                    courseNames.put(course.id(), courseName);
-                    renameCourse(course.id(), courseName);
-                }
-                loaded = result;
-                loadError = failure;
-                showModules();
-            }, ModalityState.any(), o -> project.isDisposed());
-        });
-    }
-
-    private void renameCourse(long id, @NotNull String name) {
-        updatingCombo = true;
-        try {
-            for (int i = 0; i < courseCombo.getItemCount(); i++) {
-                if (courseCombo.getItemAt(i).id() == id) {
-                    boolean selected = courseCombo.getSelectedIndex() == i;
-                    courseCombo.removeItemAt(i);
-                    courseCombo.insertItemAt(new CourseItem(id, name), i);
-                    if (selected) courseCombo.setSelectedIndex(i);
-                }
-            }
-        }
-        finally {
-            updatingCombo = false;
-        }
+        courses.fillCourses();
     }
 
     private void showModules() {
@@ -229,14 +124,15 @@ final class VplAssignmentsPanel extends JPanel implements Disposable {
         model.clear();
         visible.forEach(model::addElement);
         int hidden = loaded.size() - visible.size();
+        String training = trainingCount > 0 ? " Tréninkové úlohy (" + trainingCount + ") jsou na kartě Trénink." : "";
         if (loadError != null) {
             showStatus(loadError, true);
         }
         else if (loaded.isEmpty()) {
-            showStatus("V kurzu nejsou žádné úlohy VPL.", false);
+            showStatus(("V kurzu nejsou žádné úlohy VPL ze cvičení." + training).strip(), false);
         }
         else {
-            showStatus(hidden > 0 ? "Skryto " + hidden + " uzavřených nebo nedostupných úloh." : "", false);
+            showStatus(((hidden > 0 ? "Skryto " + hidden + " uzavřených nebo nedostupných úloh." : "") + training).strip(), false);
         }
         updateButtons();
     }
@@ -254,19 +150,18 @@ final class VplAssignmentsPanel extends JPanel implements Disposable {
 
     private void openSelected() {
         CourseModule selected = list.getSelectedValue();
-        CourseItem course = (CourseItem) courseCombo.getSelectedItem();
-        if (selected == null || course == null || !selected.userVisible()) return;
-        VplTaskOpener.open(project, course.id(), courseNames.get(course.id()), selected);
+        Long courseId = courses.selectedCourseId();
+        if (selected == null || courseId == null || !selected.userVisible()) return;
+        VplTaskOpener.open(project, courseId, courses.selectedCourseName(), selected);
     }
 
-    private static @NotNull String activityUrl(@NotNull CourseModule module) {
+    static @NotNull String activityUrl(@NotNull CourseModule module) {
         return module.url() != null ? module.url()
             : MoodleSettings.getInstance().getSiteUrl() + "/mod/vpl/view.php?id=" + module.id();
     }
 
     @Override
     public void dispose() {
-        generation.incrementAndGet();
     }
 
     private static final class ModuleRenderer extends ColoredListCellRenderer<CourseModule> {
@@ -290,7 +185,8 @@ final class VplAssignmentsPanel extends JPanel implements Disposable {
                     soon ? new SimpleTextAttributes(SimpleTextAttributes.STYLE_PLAIN, JBColor.RED) : SimpleTextAttributes.GRAYED_ATTRIBUTES);
             }
             if (!module.sectionName().isBlank()) {
-                append("  · " + module.sectionName(), SimpleTextAttributes.GRAYED_SMALL_ATTRIBUTES);
+                String section = module.subsectionName() != null ? module.sectionName() + " / " + module.subsectionName() : module.sectionName();
+                append("  · " + section, SimpleTextAttributes.GRAYED_SMALL_ATTRIBUTES);
             }
             setToolTipText(module.availabilityInfo() != null ? "<html>" + module.availabilityInfo() + "</html>" : null);
         }
