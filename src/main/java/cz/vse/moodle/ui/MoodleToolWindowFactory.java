@@ -24,6 +24,8 @@ public final class MoodleToolWindowFactory implements ToolWindowFactory, DumbAwa
         }
         VplAssignmentsPanel assignments = new VplAssignmentsPanel(project);
         addContent(contents, assignments, "Úlohy", assignments);
+        TrainingPanel training = new TrainingPanel(project);
+        addContent(contents, training, "Trénink", training);
         MoodleAccountPanel account = new MoodleAccountPanel(project);
         addContent(contents, account, "Student", account);
         contents.setSelectedContent(contents.getContent(0));

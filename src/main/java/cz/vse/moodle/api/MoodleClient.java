@@ -10,9 +10,14 @@ import java.io.IOException;
 import java.net.http.HttpClient;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 
 /**
  * Authenticated client for the Moodle REST web service ({@code webservice/rest/server.php}).
@@ -21,6 +26,9 @@ import java.util.Map;
  * (e.g. course contents and file downloads) on top of {@link #call(String, Map)}.
  */
 public final class MoodleClient {
+    private static final String SUBSECTION_COMPONENT = "mod_subsection";
+    private static final String SUBSECTION_MODNAME = "subsection";
+
     private final String siteUrl;
     private final String token;
     private final HttpClient http;
@@ -83,14 +91,16 @@ public final class MoodleClient {
         return MoodleResponses.getString(courses.get(0).getAsJsonObject(), "fullname");
     }
 
-    /** Activities of one module type (e.g. {@code "vpl"}) in a course, in course order. */
+    /**
+     * Activities of one module type (e.g. {@code "vpl"}) in a course, in course order. Activities in a subsection
+     * are listed where the subsection is placed, with {@link CourseModule#sectionName()} of the parent section.
+     */
     public @NotNull List<CourseModule> getCourseModules(long courseId, @NotNull String modName) throws IOException, MoodleException {
         Map<String, String> params = new LinkedHashMap<>();
         params.put("courseid", Long.toString(courseId));
-        params.put("options[0][name]", "modname");
-        params.put("options[0][value]", modName);
-        params.put("options[1][name]", "excludecontents");
-        params.put("options[1][value]", "1");
+        // No "modname" option: it would also drop the "subsection" modules that link subsections to their parents.
+        params.put("options[0][name]", "excludecontents");
+        params.put("options[0][value]", "1");
         return parseCourseModules(call("core_course_get_contents", params), modName);
     }
 
@@ -114,49 +124,105 @@ public final class MoodleClient {
         return new AutologinKey(key, url);
     }
 
+    /**
+     * Moodle 4.5 subsections: each one is a separate "delegated" section ({@code component = mod_subsection},
+     * {@code itemid} = subsection instance) listed after the regular sections, and its parent section contains
+     * a module with {@code modname = subsection} and the same {@code instance}.
+     */
     static @NotNull List<CourseModule> parseCourseModules(@NotNull JsonElement json, @NotNull String modName) throws MoodleException {
         if (!json.isJsonArray()) {
             throw new MoodleException("invalidresponse", "Neočekávaná odpověď na core_course_get_contents.");
         }
-        List<CourseModule> result = new ArrayList<>();
+        List<JsonObject> sections = new ArrayList<>();
+        List<JsonObject> subsections = new ArrayList<>();
+        Map<Long, JsonObject> subsectionsByInstance = new HashMap<>();
+        Map<String, JsonObject> subsectionsByName = new HashMap<>();
         for (JsonElement sectionElement : json.getAsJsonArray()) {
             if (!sectionElement.isJsonObject()) continue;
             JsonObject section = sectionElement.getAsJsonObject();
-            String sectionName = MoodleResponses.getString(section, "name");
-            if (!(section.get("modules") instanceof JsonArray modules)) continue;
-            for (JsonElement moduleElement : modules) {
-                if (!moduleElement.isJsonObject()) continue;
-                JsonObject module = moduleElement.getAsJsonObject();
-                if (!modName.equals(MoodleResponses.getString(module, "modname"))) continue;
-                long id = MoodleResponses.getLong(module, "id", -1);
-                String name = MoodleResponses.getString(module, "name");
-                if (id < 0 || name == null) continue;
-                Instant opens = null;
-                Instant due = null;
-                if (module.get("dates") instanceof JsonArray dates) {
-                    for (JsonElement dateElement : dates) {
-                        if (!dateElement.isJsonObject()) continue;
-                        JsonObject date = dateElement.getAsJsonObject();
-                        long timestamp = MoodleResponses.getLong(date, "timestamp", 0);
-                        if (timestamp <= 0) continue;
-                        String dataId = MoodleResponses.getString(date, "dataid");
-                        if ("duedate".equals(dataId)) {
-                            due = Instant.ofEpochSecond(timestamp);
-                        }
-                        else if ("startdate".equals(dataId) || "allowsubmissionsfromdate".equals(dataId)) {
-                            opens = Instant.ofEpochSecond(timestamp);
-                        }
-                    }
+            if (SUBSECTION_COMPONENT.equals(MoodleResponses.getString(section, "component"))) {
+                subsections.add(section);
+                long itemId = MoodleResponses.getLong(section, "itemid", -1);
+                if (itemId >= 0) subsectionsByInstance.put(itemId, section);
+                String name = MoodleResponses.getString(section, "name");
+                if (name != null) subsectionsByName.putIfAbsent(name, section);
+            }
+            else {
+                sections.add(section);
+            }
+        }
+
+        List<CourseModule> result = new ArrayList<>();
+        Set<JsonObject> placed = Collections.newSetFromMap(new IdentityHashMap<>());
+        for (JsonObject section : sections) {
+            String sectionName = Objects.requireNonNullElse(MoodleResponses.getString(section, "name"), "");
+            for (JsonObject module : modules(section)) {
+                if (!SUBSECTION_MODNAME.equals(MoodleResponses.getString(module, "modname"))) {
+                    addModule(result, module, modName, sectionName, null);
+                    continue;
                 }
-                result.add(new CourseModule(id, name, modName, MoodleResponses.getString(module, "url"),
-                    sectionName != null ? sectionName : "",
-                    MoodleResponses.getBoolean(module, "uservisible", true),
-                    blankToNull(MoodleResponses.getString(module, "availabilityinfo")),
-                    blankToNull(MoodleResponses.getString(module, "description")),
-                    opens, due));
+                JsonObject subsection = subsectionsByInstance.get(MoodleResponses.getLong(module, "instance", -1));
+                if (subsection == null) {
+                    // Fallback in case the response lacks itemid/instance.
+                    subsection = subsectionsByName.get(MoodleResponses.getString(module, "name"));
+                }
+                if (subsection == null || !placed.add(subsection)) continue;
+                String subsectionName = MoodleResponses.getString(subsection, "name");
+                for (JsonObject inner : modules(subsection)) {
+                    addModule(result, inner, modName, sectionName, subsectionName);
+                }
+            }
+        }
+        // A subsection whose placeholder module isn't in the response (e.g. hidden): keep its activities on its own.
+        for (JsonObject subsection : subsections) {
+            if (placed.contains(subsection)) continue;
+            String name = Objects.requireNonNullElse(MoodleResponses.getString(subsection, "name"), "");
+            for (JsonObject inner : modules(subsection)) {
+                addModule(result, inner, modName, name, null);
             }
         }
         return result;
+    }
+
+    private static @NotNull List<JsonObject> modules(@NotNull JsonObject section) {
+        List<JsonObject> modules = new ArrayList<>();
+        if (section.get("modules") instanceof JsonArray array) {
+            for (JsonElement element : array) {
+                if (element.isJsonObject()) modules.add(element.getAsJsonObject());
+            }
+        }
+        return modules;
+    }
+
+    private static void addModule(@NotNull List<CourseModule> result, @NotNull JsonObject module, @NotNull String modName,
+                                  @NotNull String sectionName, @Nullable String subsectionName) {
+        if (!modName.equals(MoodleResponses.getString(module, "modname"))) return;
+        long id = MoodleResponses.getLong(module, "id", -1);
+        String name = MoodleResponses.getString(module, "name");
+        if (id < 0 || name == null) return;
+        Instant opens = null;
+        Instant due = null;
+        if (module.get("dates") instanceof JsonArray dates) {
+            for (JsonElement dateElement : dates) {
+                if (!dateElement.isJsonObject()) continue;
+                JsonObject date = dateElement.getAsJsonObject();
+                long timestamp = MoodleResponses.getLong(date, "timestamp", 0);
+                if (timestamp <= 0) continue;
+                String dataId = MoodleResponses.getString(date, "dataid");
+                if ("duedate".equals(dataId)) {
+                    due = Instant.ofEpochSecond(timestamp);
+                }
+                else if ("startdate".equals(dataId) || "allowsubmissionsfromdate".equals(dataId)) {
+                    opens = Instant.ofEpochSecond(timestamp);
+                }
+            }
+        }
+        result.add(new CourseModule(id, name, modName, MoodleResponses.getString(module, "url"),
+            sectionName, blankToNull(subsectionName),
+            MoodleResponses.getBoolean(module, "uservisible", true),
+            blankToNull(MoodleResponses.getString(module, "availabilityinfo")),
+            blankToNull(MoodleResponses.getString(module, "description")),
+            opens, due));
     }
 
     private static @Nullable String blankToNull(@Nullable String text) {

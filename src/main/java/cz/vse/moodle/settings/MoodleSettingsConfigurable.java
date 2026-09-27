@@ -25,6 +25,7 @@ import java.util.List;
 public final class MoodleSettingsConfigurable implements Configurable {
     private JBTextField siteUrlField;
     private JBTextField courseIdsField;
+    private JBTextField trainingSectionField;
     private TextFieldWithBrowseButton projectsDirField;
     private JPanel panel;
 
@@ -39,6 +40,8 @@ public final class MoodleSettingsConfigurable implements Configurable {
         siteUrlField.getEmptyText().setText(MoodleSettings.DEFAULT_SITE_URL);
         courseIdsField = new JBTextField();
         courseIdsField.getEmptyText().setText(MoodleSettings.DEFAULT_COURSE_IDS);
+        trainingSectionField = new JBTextField();
+        trainingSectionField.getEmptyText().setText(MoodleSettings.DEFAULT_TRAINING_SECTION);
         projectsDirField = new TextFieldWithBrowseButton();
         projectsDirField.addBrowseFolderListener(null,
             FileChooserDescriptorFactory.createSingleFolderDescriptor().withTitle("Složka pro úlohy VPL"));
@@ -47,6 +50,8 @@ public final class MoodleSettingsConfigurable implements Configurable {
             .addComponentToRightColumn(hint("Po změně adresy budete přihlášeni k novému webu (pokud k němu máte uložený token)."))
             .addLabeledComponent("Kurzy s úlohami VPL:", courseIdsField)
             .addComponentToRightColumn(hint("ID kurzů oddělená čárkou (číslo za course/view.php?id=) nebo celé adresy kurzů."))
+            .addLabeledComponent("Sekce s tréninkovými úlohami:", trainingSectionField)
+            .addComponentToRightColumn(hint("Úlohy z této sekce kurzu (i z jejích podsekcí) jsou na kartě Trénink, ne mezi úlohami ze cvičení."))
             .addLabeledComponent("Složka pro úlohy:", projectsDirField)
             .addComponentToRightColumn(hint("Sem se ukládají projekty stažených úloh (kurz/úloha)."))
             .addComponentFillVertically(new JPanel(), 0)
@@ -67,6 +72,7 @@ public final class MoodleSettingsConfigurable implements Configurable {
         MoodleSettings settings = MoodleSettings.getInstance();
         return !enteredUrl().equals(settings.getSiteUrl())
             || !enteredCourseIds().equals(settings.getCourseIdsText())
+            || !enteredTrainingSection().equals(settings.getTrainingSection())
             || !enteredProjectsDir().equals(settings.getProjectsDir().toString());
     }
 
@@ -92,8 +98,10 @@ public final class MoodleSettingsConfigurable implements Configurable {
         }
 
         MoodleSettings settings = MoodleSettings.getInstance();
-        boolean coursesChanged = !enteredCourseIds().equals(settings.getCourseIdsText());
+        boolean coursesChanged = !enteredCourseIds().equals(settings.getCourseIdsText())
+            || !enteredTrainingSection().equals(settings.getTrainingSection());
         settings.setCourseIdsText(enteredCourseIds());
+        settings.setTrainingSection(enteredTrainingSection());
         settings.setProjectsDir(projectsDir);
         if (!url.equals(settings.getSiteUrl())) {
             settings.setSiteUrl(url);
@@ -110,6 +118,7 @@ public final class MoodleSettingsConfigurable implements Configurable {
         MoodleSettings settings = MoodleSettings.getInstance();
         siteUrlField.setText(settings.getSiteUrl());
         courseIdsField.setText(settings.getCourseIdsText());
+        trainingSectionField.setText(settings.getTrainingSection());
         projectsDirField.setText(settings.getProjectsDir().toString());
     }
 
@@ -117,6 +126,7 @@ public final class MoodleSettingsConfigurable implements Configurable {
     public void disposeUIResources() {
         siteUrlField = null;
         courseIdsField = null;
+        trainingSectionField = null;
         projectsDirField = null;
         panel = null;
     }
@@ -129,6 +139,11 @@ public final class MoodleSettingsConfigurable implements Configurable {
     private @NotNull String enteredCourseIds() {
         String text = courseIdsField != null ? courseIdsField.getText().trim() : "";
         return text.isEmpty() ? MoodleSettings.DEFAULT_COURSE_IDS : text;
+    }
+
+    private @NotNull String enteredTrainingSection() {
+        String text = trainingSectionField != null ? trainingSectionField.getText().trim() : "";
+        return text.isEmpty() ? MoodleSettings.DEFAULT_TRAINING_SECTION : text;
     }
 
     private @NotNull String enteredProjectsDir() {

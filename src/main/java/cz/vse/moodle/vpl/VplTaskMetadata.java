@@ -31,6 +31,10 @@ public final class VplTaskMetadata {
     public long due;
     /** Id of the submission the local files are based on (0 = nothing submitted yet). */
     public long version;
+    /** Practice task from the course's training section: shown with a "Trénink" badge, its results are recorded locally. */
+    public boolean training;
+    /** Subsection (topic) of a training task, if any. */
+    public String topic;
     /** Files the teacher provides; they are always submitted. */
     public List<String> requestedFiles = new ArrayList<>();
 

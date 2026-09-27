@@ -19,6 +19,8 @@ import cz.vse.moodle.api.CourseModule;
 import cz.vse.moodle.api.MoodleClient;
 import cz.vse.moodle.api.MoodleException;
 import cz.vse.moodle.settings.MoodleSettings;
+import cz.vse.moodle.training.TrainingProgress;
+import cz.vse.moodle.training.TrainingTasks;
 import cz.vse.moodle.vpl.api.VplApi;
 import cz.vse.moodle.vpl.api.VplFile;
 import cz.vse.moodle.vpl.api.VplSubmission;
@@ -30,6 +32,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Stream;
 
 /** Downloads a VPL activity into {@code <projects dir>/<course>/<activity>} and opens it as a project. */
@@ -53,9 +56,17 @@ public final class VplTaskOpener {
                     Path courseDir = MoodleSettings.getInstance().getProjectsDir()
                         .resolve(VplProjectFiles.safeDirName(courseName != null ? courseName : "Kurz " + courseId));
                     dir = chooseDir(courseDir, activity);
+                    boolean training = TrainingTasks.isTraining(activity);
                     VplTaskMetadata existing = VplTaskMetadata.read(dir);
                     if (existing != null) {
                         // Already downloaded: open it as it is, the student may have local changes.
+                        if (existing.training != training || !Objects.equals(existing.topic, activity.subsectionName())) {
+                            // Downloaded before the task was moved to (or out of) the training section.
+                            existing.training = training;
+                            existing.topic = activity.subsectionName();
+                            existing.write(dir);
+                        }
+                        if (training) TrainingProgress.getInstance().markStarted(existing.siteUrl, existing.cmid);
                         firstFile = existing.requestedFiles.isEmpty() ? null : existing.requestedFiles.getFirst();
                         return;
                     }
@@ -78,7 +89,13 @@ public final class VplTaskOpener {
                     metadata.due = activity.due() != null ? activity.due().getEpochSecond() : 0;
                     metadata.version = submission.version();
                     metadata.requestedFiles = requested.stream().map(VplFile::name).toList();
+                    metadata.training = training;
+                    metadata.topic = activity.subsectionName();
                     metadata.write(dir);
+                    if (training) {
+                        if (submission.result() != null) TrainingProgress.getInstance().record(metadata.siteUrl, metadata.cmid, submission.result());
+                        else TrainingProgress.getInstance().markStarted(metadata.siteUrl, metadata.cmid);
+                    }
                     VplProjectFiles.writeJavaProjectConfig(dir, dir.getFileName().toString(), files, findJdkName());
                     firstFile = !metadata.requestedFiles.isEmpty() ? metadata.requestedFiles.getFirst()
                         : files.isEmpty() ? null : files.getFirst().name();

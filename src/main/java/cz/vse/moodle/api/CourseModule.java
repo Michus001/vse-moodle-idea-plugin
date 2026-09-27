@@ -9,6 +9,8 @@ import java.time.Instant;
  * Activity from {@code core_course_get_contents}.
  *
  * @param id               course module id ({@code cmid}), used by all module web services
+ * @param sectionName      top-level course section; for an activity in a subsection, the section containing it
+ * @param subsectionName   subsection (Moodle 4.5 {@code mod_subsection}) the activity is in, or null
  * @param userVisible      false when the activity is shown but not available (restrictions, hidden)
  * @param availabilityInfo HTML explaining why the activity isn't available, if Moodle provides it
  * @param description      HTML description; only present when the teacher shows it on the course page
@@ -20,6 +22,7 @@ public record CourseModule(long id,
                            @NotNull String modName,
                            @Nullable String url,
                            @NotNull String sectionName,
+                           @Nullable String subsectionName,
                            boolean userVisible,
                            @Nullable String availabilityInfo,
                            @Nullable String description,

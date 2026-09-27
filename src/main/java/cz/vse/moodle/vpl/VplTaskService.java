@@ -18,6 +18,7 @@ import cz.vse.moodle.api.SiteUrls;
 import cz.vse.moodle.session.MoodleSessionService;
 import cz.vse.moodle.session.MoodleUser;
 import cz.vse.moodle.settings.MoodleSettings;
+import cz.vse.moodle.training.TrainingProgress;
 import cz.vse.moodle.vpl.api.VplApi;
 import cz.vse.moodle.vpl.api.VplExecution;
 import cz.vse.moodle.vpl.api.VplFile;
@@ -108,6 +109,7 @@ public final class VplTaskService {
                     VplSubmission submission = VplService.getInstance().getApi().load(task.cmid);
                     lastResult = submission.result();
                     timeLeft = submission.timeLeft();
+                    recordTraining(task, submission.result());
                     setStatus(submission.version() > 0 ? null : "Úloha zatím nebyla odevzdána.", false);
                 }
                 catch (IOException | MoodleException e) {
@@ -177,6 +179,7 @@ public final class VplTaskService {
                     result = evaluate(api, task, indicator);
                     if (result != null) {
                         lastResult = result;
+                        recordTraining(task, result);
                         setStatus(null, false);
                     }
                 }
@@ -265,6 +268,7 @@ public final class VplTaskService {
                     task.write(root);
                     lastResult = submission.result();
                     timeLeft = submission.timeLeft();
+                    recordTraining(task, submission.result());
                     setStatus("Staženo " + submission.files().size() + " " + souboru(submission.files().size())
                         + (submission.version() > 0 ? " z posledního odevzdání." : " (úloha zatím nebyla odevzdána)."), false);
                     VirtualFile dir = LocalFileSystem.getInstance().refreshAndFindFileByNioFile(root);
@@ -282,6 +286,13 @@ public final class VplTaskService {
                 finish();
             }
         }.queue();
+    }
+
+    /** Keeps the Trénink tab's progress (new / started / solved, best grade) without asking VPL for every task. */
+    private static void recordTraining(@NotNull VplTaskMetadata task, @Nullable VplResult result) {
+        if (task.training && result != null) {
+            TrainingProgress.getInstance().record(task.siteUrl, task.cmid, result);
+        }
     }
 
     /** E-mail of the logged-in student for {@link VplSubmitterStamp}; the username when Moodle hides the e-mail. */
