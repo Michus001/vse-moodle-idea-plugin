@@ -6,6 +6,7 @@ import cz.vse.moodle.vpl.api.VplResult;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -54,8 +55,15 @@ public final class TrainingTasks {
         return normalize(sectionName).equalsIgnoreCase(normalize(trainingSection));
     }
 
-    private static @NotNull String normalize(@NotNull String name) {
-        return name.strip().replaceAll("\\s+", " ");
+    /**
+     * Section names come through Moodle's format_string: tolerate HTML tags/entities, non-breaking spaces and
+     * decomposed accents ("e" + combining acute, as typed on macOS).
+     */
+    static @NotNull String normalize(@NotNull String name) {
+        String text = name.replaceAll("<[^>]*>", "")
+            .replace("&nbsp;", " ").replace("&amp;", "&").replace("&eacute;", "é").replace("&Eacute;", "É")
+            .replace(' ', ' ');
+        return Normalizer.normalize(text, Normalizer.Form.NFC).strip().replaceAll("\\s+", " ");
     }
 
     /** Number of leading stars: {@code "★★ Seřazení seznamu"} → 2; 0 when the name has none. */

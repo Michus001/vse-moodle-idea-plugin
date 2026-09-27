@@ -18,6 +18,10 @@ public class TrainingTasksTest {
         assertTrue(TrainingTasks.isTrainingSection("Trénink", "Trénink"));
         assertTrue(TrainingTasks.isTrainingSection("  trénink ", "Trénink"));
         assertFalse(TrainingTasks.isTrainingSection("Týden 1", "Trénink"));
+        // Decomposed é (macOS input), non-breaking space, HTML from format_string.
+        assertTrue(TrainingTasks.isTrainingSection("Trénink", "Trénink"));
+        assertTrue(TrainingTasks.isTrainingSection(" Trénink ", "Trénink"));
+        assertTrue(TrainingTasks.isTrainingSection("<span class=\"course-mod_subsection\">Tr&eacute;nink</span>", "Trénink"));
     }
 
     @Test

@@ -4,6 +4,7 @@ import com.intellij.icons.AllIcons;
 import com.intellij.ide.BrowserUtil;
 import com.intellij.openapi.Disposable;
 import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.ComboBox;
 import com.intellij.openapi.util.Disposer;
@@ -59,6 +60,7 @@ import java.util.TreeSet;
  * recorded locally by {@link TrainingProgress}.
  */
 final class TrainingPanel extends JPanel implements Disposable {
+    private static final Logger LOG = Logger.getInstance(TrainingPanel.class);
     private static final String ALL_DIFFICULTIES = "Všechny obtížnosti";
 
     /** Tree node of a subsection; the counts are over all its tasks, not only the filtered ones. */
@@ -114,6 +116,10 @@ final class TrainingPanel extends JPanel implements Disposable {
                     sections.add(module.subsectionName() != null ? module.sectionName() + " / " + module.subsectionName() : module.sectionName());
                 }
                 otherSections = new ArrayList<>(sections);
+                if (training.isEmpty() && result.error() == null) {
+                    LOG.info("No training section \"" + MoodleSettings.getInstance().getTrainingSection() + "\" in course "
+                        + result.courseId() + "; VPL sections: " + sections.stream().map(TrainingPanel::debugName).toList());
+                }
                 loadError = result.error();
                 pendingMessage = null;
                 fillDifficulties();
@@ -455,6 +461,13 @@ final class TrainingPanel extends JPanel implements Disposable {
             if (task.availabilityInfo() != null) tooltip.append("<br>").append(task.availabilityInfo());
             setToolTipText(tooltip.append("</html>").toString());
         }
+    }
+
+    /** The name with non-ASCII characters as \\uXXXX, to see invisible differences in the log. */
+    private static @NotNull String debugName(@NotNull String name) {
+        StringBuilder text = new StringBuilder("\"");
+        name.chars().forEach(c -> text.append(c >= 32 && c < 127 ? String.valueOf((char) c) : String.format("\\u%04X", c)));
+        return text.append('"').toString();
     }
 
     /** "Navrhovaná známka: 8 / 10" → "8 / 10". */
