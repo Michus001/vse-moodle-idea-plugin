@@ -95,13 +95,6 @@ public class VplProjectFilesTest {
     }
 
     @Test
-    public void makesSafeDirectoryNames() {
-        assertEquals("Úloha 3 - Pole - seznamy", VplProjectFiles.safeDirName("Úloha 3: Pole / seznamy"));
-        assertEquals("uloha", VplProjectFiles.safeDirName("..."));
-        assertEquals("a - b", VplProjectFiles.safeDirName("a<>b"));
-    }
-
-    @Test
     public void metadataRoundTrip() throws IOException {
         Path root = temp.getRoot().toPath();
         assertNull(VplTaskMetadata.read(root));

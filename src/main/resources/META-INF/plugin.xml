@@ -13,6 +13,16 @@
 
     <!-- Shown as "What's New" in Settings | Plugins. Newest version first. -->
     <change-notes><![CDATA[
+    <h3>0.2.1</h3>
+    <ul>
+      <li>Složky projektů mají názvy jen z ASCII znaků (bez diakritiky, mezer a závorek),
+          např. <i>4IT107_Programovani_v_Jave_2026_-_2027_ZS/Hon_na_hodnotu</i>. Opravuje chybu
+          <i>InvalidPathException: Illegal char &lt;?&gt;</i> při překladu ve Windows s jiným než českým jazykem pro programy
+          nepoužívající Unicode.</li>
+      <li>Dříve stažené úlohy se při startu IDE nebo při otevření úlohy automaticky přejmenují.
+          Pokud to nejde (projekt je otevřený, soubory jsou zamčené), nic se nesmaže a plugin zobrazí upozornění.</li>
+      <li>Stažená úloha se hledá podle ID z Moodle, ne podle názvu složky.</li>
+    </ul>
     <h3>0.2.0</h3>
     <ul>
       <li>Nová karta <b>Trénink</b>: tréninkové úlohy ze sekce kurzu „Trénink“ ve stromu podle témat (podsekce Moodle),

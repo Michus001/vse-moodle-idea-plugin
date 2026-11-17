@@ -35,7 +35,10 @@ import java.util.List;
 import java.util.Objects;
 import java.util.stream.Stream;
 
-/** Downloads a VPL activity into {@code <projects dir>/<course>/<activity>} and opens it as a project. */
+/**
+ * Downloads a VPL activity into {@code <projects dir>/<course>/<activity>} (ASCII names, see {@link VplProjectLocator})
+ * and opens it as a project.
+ */
 public final class VplTaskOpener {
     private static final Logger LOG = Logger.getInstance(VplTaskOpener.class);
 
@@ -53,11 +56,19 @@ public final class VplTaskOpener {
             public void run(@NotNull ProgressIndicator indicator) {
                 try {
                     MoodleClient client = VplService.requireClient();
-                    Path courseDir = MoodleSettings.getInstance().getProjectsDir()
-                        .resolve(VplProjectFiles.safeDirName(courseName != null ? courseName : "Kurz " + courseId));
-                    dir = chooseDir(courseDir, activity);
+                    Path projectsDir = MoodleSettings.getInstance().getProjectsDir();
+                    // Found by Moodle ids, not by folder name; older folders with diacritics are renamed first.
+                    VplProjectLocator.TaskDir found = VplProjectLocator.find(projectsDir, client.getSiteUrl(), activity.id());
+                    VplTaskMetadata existing = null;
+                    if (found != null) {
+                        dir = VplProjectMigrator.migrateIfNeeded(projectsDir, found, current);
+                        existing = VplTaskMetadata.read(dir);
+                    }
+                    if (existing == null) {
+                        Path courseDir = projectsDir.resolve(VplProjectLocator.courseDirName(courseId, courseName));
+                        dir = VplProjectLocator.newTaskDir(courseDir, activity.id(), activity.name());
+                    }
                     boolean training = TrainingTasks.isTraining(activity);
-                    VplTaskMetadata existing = VplTaskMetadata.read(dir);
                     if (existing != null) {
                         // Already downloaded: open it as it is, the student may have local changes.
                         if (existing.training != training || !Objects.equals(existing.topic, TrainingTasks.topic(activity))) {
@@ -130,23 +141,6 @@ public final class VplTaskOpener {
                 openProject(dir, fileToOpen);
             }
         }.queue();
-    }
-
-    /** Uses "<course>/<activity>"; falls back to "<activity> (<cmid>)" when that folder holds something else. */
-    private static @NotNull Path chooseDir(@NotNull Path courseDir, @NotNull CourseModule activity) throws IOException {
-        Path dir = courseDir.resolve(VplProjectFiles.safeDirName(activity.name()));
-        VplTaskMetadata existing = VplTaskMetadata.read(dir);
-        if (!Files.exists(dir) || (existing != null && existing.cmid == activity.id()) || isEmptyDir(dir)) {
-            return dir;
-        }
-        return courseDir.resolve(VplProjectFiles.safeDirName(activity.name()) + " (" + activity.id() + ")");
-    }
-
-    private static boolean isEmptyDir(@NotNull Path dir) throws IOException {
-        if (!Files.isDirectory(dir)) return false;
-        try (Stream<Path> entries = Files.list(dir)) {
-            return entries.findAny().isEmpty();
-        }
     }
 
     /** The newest configured Java SDK, so the generated project compiles without further setup. */
