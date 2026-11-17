@@ -95,6 +95,24 @@ public class VplProjectFilesTest {
     }
 
     @Test
+    public void taskFilesSkipIdeAndPluginFiles() throws IOException {
+        Path root = temp.newFolder("reset").toPath();
+        Files.createDirectories(root.resolve("src/model"));
+        Files.createDirectories(root.resolve(".idea"));
+        Files.createDirectories(root.resolve("out/production"));
+        Files.writeString(root.resolve("src/Main.java"), "");
+        Files.writeString(root.resolve("src/model/Extra.java"), "");
+        Files.writeString(root.resolve("notes.txt"), "");
+        Files.writeString(root.resolve(".idea/misc.xml"), "");
+        Files.writeString(root.resolve("out/production/Main.class"), "");
+        Files.writeString(root.resolve("uloha.iml"), "");
+        Files.writeString(root.resolve(VplTaskMetadata.FILE_NAME), "{}");
+
+        assertEquals(List.of(root.resolve("notes.txt"), root.resolve("src/Main.java"), root.resolve("src/model/Extra.java")),
+            VplProjectFiles.taskFiles(root));
+    }
+
+    @Test
     public void metadataRoundTrip() throws IOException {
         Path root = temp.getRoot().toPath();
         assertNull(VplTaskMetadata.read(root));

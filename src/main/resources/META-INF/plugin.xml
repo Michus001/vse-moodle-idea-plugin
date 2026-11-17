@@ -13,6 +13,12 @@
 
     <!-- Shown as "What's New" in Settings | Plugins. Newest version first. -->
     <change-notes><![CDATA[
+    <h3>0.2.2</h3>
+    <ul>
+      <li>Karta <b>Úloha</b>: odkaz <i>Začít znovu od zadání…</i> zahodí všechny změny v úloze a obnoví původní soubory
+          zadání z Moodle (jako „Reset“ ve VPL). Před tím se zeptá na potvrzení; odevzdání v Moodle se nemění, dokud
+          úlohu znovu neodevzdáte, a předchozí stav zůstává v Local History.</li>
+    </ul>
     <h3>0.2.1</h3>
     <ul>
       <li>Složky projektů mají názvy jen z ASCII znaků (bez diakritiky, mezer a závorek),
