@@ -61,6 +61,25 @@ public final class VplProjectFiles {
      * Names are relative with {@code /} separators, sorted so that requested files come first.
      */
     public static @NotNull List<VplFile> collect(@NotNull Path root, @NotNull List<String> requestedFiles) throws IOException {
+        Path base = root.toAbsolutePath().normalize();
+        List<VplFile> files = new ArrayList<>();
+        for (Path path : taskFiles(root)) {
+            if (Files.size(path) > MAX_FILE_SIZE) {
+                throw new IOException("Soubor " + base.relativize(path) + " je větší než 1 MB. Přesuňte ho mimo složku úlohy.");
+            }
+            files.add(new VplFile(relativeName(base, path), Files.readAllBytes(path)));
+        }
+        files.sort(Comparator
+            .comparingInt((VplFile f) -> requestedFiles.contains(f.name()) ? requestedFiles.indexOf(f.name()) : Integer.MAX_VALUE)
+            .thenComparing(VplFile::name));
+        return files;
+    }
+
+    /**
+     * The student's files in the project: everything except IDE/build/VCS files and this plugin's metadata.
+     * These are submitted, and deleted when the task is reset to the initial files.
+     */
+    public static @NotNull List<Path> taskFiles(@NotNull Path root) throws IOException {
         List<Path> paths = new ArrayList<>();
         Path base = root.toAbsolutePath().normalize();
         Files.walkFileTree(base, new SimpleFileVisitor<>() {
@@ -81,17 +100,8 @@ public final class VplProjectFiles {
                 return FileVisitResult.CONTINUE;
             }
         });
-        List<VplFile> files = new ArrayList<>();
-        for (Path path : paths) {
-            if (Files.size(path) > MAX_FILE_SIZE) {
-                throw new IOException("Soubor " + base.relativize(path) + " je větší než 1 MB. Přesuňte ho mimo složku úlohy.");
-            }
-            files.add(new VplFile(relativeName(base, path), Files.readAllBytes(path)));
-        }
-        files.sort(Comparator
-            .comparingInt((VplFile f) -> requestedFiles.contains(f.name()) ? requestedFiles.indexOf(f.name()) : Integer.MAX_VALUE)
-            .thenComparing(VplFile::name));
-        return files;
+        paths.sort(Comparator.naturalOrder());
+        return paths;
     }
 
     static @NotNull String relativeName(@NotNull Path base, @NotNull Path file) {
