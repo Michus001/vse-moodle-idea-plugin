@@ -1,5 +1,6 @@
 package cz.vse.moodle.vpl;
 
+import cz.vse.moodle.util.PathNames;
 import cz.vse.moodle.vpl.api.VplFile;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -97,20 +98,6 @@ public final class VplProjectFiles {
         return base.relativize(file).toString().replace(java.io.File.separatorChar, '/');
     }
 
-    /** A directory name safe on all platforms, e.g. "Úloha 3: Pole / seznamy" -> "Úloha 3 - Pole - seznamy". */
-    public static @NotNull String safeDirName(@NotNull String name) {
-        String safe = name.replaceAll("[\\\\/:*?\"<>|]+", " - ")
-            .replaceAll("[\\p{Cntrl}]", "")
-            .replaceAll("\\s+", " ")
-            .replaceAll("( - )+", " - ")
-            .trim()
-            .replaceAll("^[.\\s-]+|[.\\s-]+$", "");
-        if (safe.length() > 80) {
-            safe = safe.substring(0, 80).trim();
-        }
-        return safe.isEmpty() ? "uloha" : safe;
-    }
-
     /**
      * Writes a minimal IntelliJ Java project ({@code .idea/} + module) when the task contains Java sources,
      * so the student can compile and run it right away. Existing IDE configuration is left alone.
@@ -125,7 +112,7 @@ public final class VplProjectFiles {
             return;
         }
         boolean srcLayout = files.stream().anyMatch(f -> f.name().startsWith("src/"));
-        String module = safeFileName(moduleName);
+        String module = PathNames.safeDirName(moduleName, "uloha");
         Files.createDirectories(idea);
         Files.writeString(idea.resolve("misc.xml"), """
             <?xml version="1.0" encoding="UTF-8"?>
@@ -160,11 +147,6 @@ public final class VplProjectFiles {
               </component>
             </module>
             """.formatted(srcLayout ? "/src" : ""), StandardCharsets.UTF_8);
-    }
-
-    private static @NotNull String safeFileName(@NotNull String name) {
-        String safe = name.replaceAll("[^\\p{L}\\p{N}._-]+", "_").replaceAll("^[._]+", "");
-        return safe.isEmpty() ? "uloha" : safe;
     }
 
     private static @NotNull String xml(@NotNull String text) {
