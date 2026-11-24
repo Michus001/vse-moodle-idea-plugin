@@ -13,6 +13,11 @@
 
     <!-- Shown as "What's New" in Settings | Plugins. Newest version first. -->
     <change-notes><![CDATA[
+    <h3>0.2.3</h3>
+    <ul>
+      <li>Kompatibilita s IntelliJ IDEA 2026.3: plugin už nepoužívá zastaralé (deprecated) API pro otevření souboru
+          úlohy v editoru.</li>
+    </ul>
     <h3>0.2.2</h3>
     <ul>
       <li>Karta <b>Úloha</b>: odkaz <i>Začít znovu od zadání…</i> zahodí všechny změny v úloze a obnoví původní soubory

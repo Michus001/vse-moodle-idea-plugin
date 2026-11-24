@@ -42,6 +42,7 @@ intellijPlatform {
         ides {
             create(IntelliJPlatformType.IntellijIdea, providers.gradleProperty("platformVersion"))
             create(IntelliJPlatformType.IntellijIdea, "2026.2.3")
+            create(IntelliJPlatformType.IntellijIdea, "2026.3")
         }
     }
 }
