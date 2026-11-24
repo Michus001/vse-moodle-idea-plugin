@@ -44,6 +44,7 @@ final class VplTaskPanel extends JPanel implements Disposable {
     private final JButton evaluateButton = new JButton("Ověřit");
     private final JButton submitButton = new JButton("Odevzdat");
     private final JButton downloadButton = new JButton("Stáhnout z Moodle");
+    private final ActionLink resetLink = new ActionLink("Začít znovu od zadání…");
 
     VplTaskPanel(@NotNull Project project) {
         super(new BorderLayout());
@@ -56,6 +57,8 @@ final class VplTaskPanel extends JPanel implements Disposable {
         evaluateButton.addActionListener(e -> service.submit(true));
         submitButton.addActionListener(e -> service.submit(false));
         downloadButton.addActionListener(e -> service.downloadLatest());
+        resetLink.setToolTipText("Zahodí všechny změny v úloze a obnoví původní soubory zadání (jako „Reset“ ve VPL).");
+        resetLink.addActionListener(e -> service.resetToInitialFiles());
         JPanel buttons = new JPanel(new FlowLayout(FlowLayout.LEFT, JBUI.scale(6), 0));
         buttons.add(evaluateButton);
         buttons.add(submitButton);
@@ -70,6 +73,7 @@ final class VplTaskPanel extends JPanel implements Disposable {
         addLeft(top, header);
         addLeft(top, gap());
         addLeft(top, buttons);
+        addLeft(top, resetLink);
         addLeft(top, gap());
         addLeft(top, status);
         addLeft(top, grade);
@@ -122,6 +126,7 @@ final class VplTaskPanel extends JPanel implements Disposable {
         evaluateButton.setEnabled(!busy);
         submitButton.setEnabled(!busy);
         downloadButton.setEnabled(!busy);
+        resetLink.setEnabled(!busy);
 
         String message = service.getStatus();
         status.setText(message != null ? "<html>" + UiFormat.escape(message) + "</html>" : "");

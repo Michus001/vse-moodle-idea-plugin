@@ -3,7 +3,7 @@ package cz.vse.moodle.vpl;
 import com.intellij.ide.impl.ProjectUtil;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
-import com.intellij.openapi.fileEditor.FileEditorManager;
+import com.intellij.openapi.fileEditor.OpenFileDescriptor;
 import com.intellij.openapi.progress.ProgressIndicator;
 import com.intellij.openapi.progress.Task;
 import com.intellij.openapi.project.Project;
@@ -176,7 +176,9 @@ public final class VplTaskOpener {
                 toolWindow.activate(null, false);
             }
             if (fileToOpen != null && fileToOpen.isValid()) {
-                FileEditorManager.getInstance(project).openFile(fileToOpen, true);
+                // Not FileEditorManager.openFile(file, true): deprecated since 2026.3, and its replacement
+                // requestOpenFile(file, request) does not exist in 2026.1 (our sinceBuild).
+                new OpenFileDescriptor(project, fileToOpen).navigate(true);
             }
         });
     }

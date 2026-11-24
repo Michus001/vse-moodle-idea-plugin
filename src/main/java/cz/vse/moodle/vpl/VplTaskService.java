@@ -1,9 +1,11 @@
 package cz.vse.moodle.vpl;
 
+import com.intellij.history.LocalHistory;
 import com.intellij.notification.NotificationGroupManager;
 import com.intellij.notification.NotificationType;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.application.ModalityState;
+import com.intellij.openapi.command.WriteCommandAction;
 import com.intellij.openapi.components.Service;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.fileEditor.FileDocumentManager;
@@ -12,6 +14,8 @@ import com.intellij.openapi.progress.Task;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.Messages;
 import com.intellij.openapi.vfs.LocalFileSystem;
+import com.intellij.openapi.vfs.VfsUtil;
+import com.intellij.openapi.vfs.VfsUtilCore;
 import com.intellij.openapi.vfs.VirtualFile;
 import cz.vse.moodle.api.MoodleException;
 import cz.vse.moodle.api.SiteUrls;
@@ -32,8 +36,11 @@ import org.jetbrains.annotations.Nullable;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * The VPL task of the current project (if its root contains {@link VplTaskMetadata#FILE_NAME}):
@@ -44,6 +51,8 @@ public final class VplTaskService {
     private static final Logger LOG = Logger.getInstance(VplTaskService.class);
     /** VPL's own limit for an evaluation is usually well below this. */
     private static final Duration EVALUATION_TIMEOUT = Duration.ofMinutes(5);
+    /** Local History label put before the task is reset, so the discarded work can still be recovered. */
+    static final String RESET_LABEL = "Moodle VPL: před začátkem úlohy znovu";
 
     private final Project project;
     private volatile @Nullable VplTaskMetadata metadata;
@@ -286,6 +295,110 @@ public final class VplTaskService {
                 finish();
             }
         }.queue();
+    }
+
+    /**
+     * Discards the student's work: deletes all task files (see {@link VplProjectFiles#taskFiles}) and restores the
+     * teacher's initial files, like VPL's "Reset files". Like in VPL, the submission in Moodle stays until the next submit.
+     * The previous state stays in IntelliJ's Local History.
+     */
+    public void resetToInitialFiles() {
+        VplTaskMetadata task = getMetadata();
+        Path root = projectRoot();
+        if (task == null || root == null || !checkSite(task, true)) return;
+        int answer = Messages.showDialog(project,
+            "Opravdu chcete začít úlohu od začátku?\n\n"
+                + "Všechna vaše práce na této úloze se zahodí: obnoví se původní soubory zadání z Moodle "
+                + "a smažou se i soubory, které jste do úlohy přidali.\n\n"
+                + "Vaše odevzdání v Moodle se nezmění, dokud úlohu znovu neodevzdáte.\n"
+                + "V nouzi lze předchozí stav najít v Local History (štítek „" + RESET_LABEL + "“).",
+            "Začít úlohu znovu", new String[]{"Zahodit práci a začít znovu", "Zrušit"}, 1, Messages.getWarningIcon());
+        if (answer != 0) return;
+        if (!busy.compareAndSet(false, true)) return;
+        setStatus("Obnovuji původní zadání…", false);
+
+        new Task.Backgroundable(project, "Moodle VPL: obnovení zadání", true) {
+            @Override
+            public void run(@NotNull ProgressIndicator indicator) {
+                try {
+                    List<VplFile> initial = VplService.getInstance().getApi().requestedFiles(task.cmid);
+                    if (initial.isEmpty()) {
+                        setStatus("Úloha v Moodle nemá žádné výchozí soubory, místní soubory zůstaly beze změny.", true);
+                        return;
+                    }
+                    for (VplFile file : initial) {
+                        VplProjectFiles.resolve(root, file.name()); // refuse bad names before deleting anything
+                    }
+                    indicator.checkCanceled();
+                    indicator.setText("Přepisuji soubory…");
+                    // Through the VFS, so that Local History keeps the discarded files and open editors follow.
+                    replaceFiles(root, VplSubmitterStamp.strip(initial));
+                    task.requestedFiles = initial.stream().map(VplFile::name).toList();
+                    task.write(root);
+                    setStatus("Úloha je zase na začátku (" + initial.size() + " " + souboru(initial.size()) + " zadání).", false);
+                }
+                catch (IOException | MoodleException e) {
+                    LOG.info("VPL reset failed", e);
+                    setStatus("Obnovení zadání selhalo: " + errorMessage(e), true);
+                }
+            }
+
+            @Override
+            public void onFinished() {
+                finish();
+            }
+        }.queue();
+    }
+
+    private void replaceFiles(@NotNull Path root, @NotNull List<VplFile> files) throws IOException {
+        List<Path> toDelete = VplProjectFiles.taskFiles(root);
+        LocalFileSystem lfs = LocalFileSystem.getInstance();
+        VirtualFile rootDir = lfs.refreshAndFindFileByNioFile(root);
+        if (rootDir == null) throw new IOException("Složka úlohy " + root + " neexistuje.");
+        rootDir.refresh(false, true);
+        List<VirtualFile> oldFiles = toDelete.stream().map(lfs::findFileByNioFile).filter(f -> f != null).toList();
+        AtomicReference<IOException> failure = new AtomicReference<>();
+        ApplicationManager.getApplication().invokeAndWait(() -> {
+            LocalHistory.getInstance().putSystemLabel(project, RESET_LABEL);
+            try {
+                WriteCommandAction.writeCommandAction(project).withName("Začít úlohu znovu").run(() -> {
+                    FileDocumentManager.getInstance().saveAllDocuments();
+                    Set<VirtualFile> parents = new HashSet<>();
+                    for (VirtualFile file : oldFiles) {
+                        if (!file.isValid()) continue;
+                        if (file.getParent() != null) parents.add(file.getParent());
+                        file.delete(VplTaskService.this);
+                    }
+                    for (VplFile file : files) {
+                        String relative = VplProjectFiles.relativeName(root.toAbsolutePath().normalize(),
+                            VplProjectFiles.resolve(root, file.name()));
+                        int slash = relative.lastIndexOf('/');
+                        VirtualFile dir = slash < 0 ? rootDir : VfsUtil.createDirectoryIfMissing(rootDir, relative.substring(0, slash));
+                        if (dir == null) throw new IOException("Nelze vytvořit složku pro " + file.name());
+                        VirtualFile target = dir.findOrCreateChildData(VplTaskService.this, relative.substring(slash + 1));
+                        target.setBinaryContent(file.data());
+                    }
+                    deleteEmptyDirs(rootDir, parents);
+                });
+            }
+            catch (IOException e) {
+                failure.set(e);
+            }
+        }, ModalityState.defaultModalityState());
+        if (failure.get() != null) throw failure.get();
+    }
+
+    /** Removes folders the student created that are now empty (e.g. packages of deleted classes). */
+    private void deleteEmptyDirs(@NotNull VirtualFile rootDir, @NotNull Set<VirtualFile> dirs) throws IOException {
+        for (VirtualFile dir : dirs) {
+            VirtualFile current = dir;
+            while (current != null && current.isValid() && !current.equals(rootDir)
+                && VfsUtilCore.isAncestor(rootDir, current, true) && current.getChildren().length == 0) {
+                VirtualFile parent = current.getParent();
+                current.delete(this);
+                current = parent;
+            }
+        }
     }
 
     /** Keeps the Trénink tab's progress (new / started / solved, best grade) without asking VPL for every task. */
